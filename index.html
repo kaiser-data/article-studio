@@ -1,0 +1,1088 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Article Studio · Claude Code</title>
+<style>
+  :root {
+    --bg:        #0e1014;
+    --bg-2:      #15181f;
+    --panel:     #1a1e27;
+    --panel-2:   #20252f;
+    --line:      #2a3140;
+    --line-2:    #353d4d;
+    --text:      #e7ebf2;
+    --text-dim:  #9aa4b5;
+    --text-dim2: #6b7585;
+    --accent:    #ff8a3d;   /* warm ember */
+    --accent-2:  #ffb27a;
+    --idea:      #7c9cff;
+    --draft:     #ffcf5c;
+    --ready:     #5fd0a0;
+    --posted:    #9aa4b5;
+    --danger:    #ff6b6b;
+    --radius:    10px;
+    --mono: ui-monospace, "SF Mono", "JetBrains Mono", Menlo, Consolas, monospace;
+    --sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Inter, Roboto, sans-serif;
+  }
+  * { box-sizing: border-box; }
+  html, body { height: 100%; margin: 0; }
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--sans);
+    font-size: 14px;
+    line-height: 1.5;
+    overflow: hidden;
+  }
+  button { font-family: inherit; cursor: pointer; }
+  input, textarea, select { font-family: inherit; }
+  ::-webkit-scrollbar { width: 9px; height: 9px; }
+  ::-webkit-scrollbar-thumb { background: var(--line-2); border-radius: 6px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+
+  /* ---------- layout ---------- */
+  .app { display: grid; grid-template-rows: auto 1fr; height: 100vh; }
+
+  header.topbar {
+    display: flex; align-items: center; gap: 14px;
+    padding: 10px 16px;
+    background: linear-gradient(180deg, var(--bg-2), var(--bg));
+    border-bottom: 1px solid var(--line);
+  }
+  .brand { display: flex; align-items: center; gap: 10px; font-weight: 700; letter-spacing: .2px; }
+  .brand .dot {
+    width: 22px; height: 22px; border-radius: 7px;
+    background: radial-gradient(circle at 30% 30%, var(--accent-2), var(--accent));
+    box-shadow: 0 0 16px -2px var(--accent);
+  }
+  .brand small { font-weight: 500; color: var(--text-dim2); font-size: 11px; }
+  .topbar .spacer { flex: 1; }
+
+  .folder-state {
+    display: flex; align-items: center; gap: 8px;
+    font-size: 12px; color: var(--text-dim);
+    background: var(--panel); border: 1px solid var(--line);
+    padding: 6px 10px; border-radius: 8px;
+  }
+  .folder-state .led { width: 8px; height: 8px; border-radius: 50%; background: var(--text-dim2); }
+  .folder-state.on .led { background: var(--ready); box-shadow: 0 0 8px var(--ready); }
+
+  .btn {
+    background: var(--panel); color: var(--text);
+    border: 1px solid var(--line-2); border-radius: 8px;
+    padding: 7px 12px; font-size: 13px; font-weight: 500;
+    transition: .15s; white-space: nowrap;
+  }
+  .btn:hover { border-color: var(--accent); color: #fff; }
+  .btn.primary { background: linear-gradient(180deg, var(--accent-2), var(--accent)); color: #221200; border-color: transparent; font-weight: 600; }
+  .btn.primary:hover { filter: brightness(1.08); }
+  .btn.ghost { background: transparent; border-color: var(--line); color: var(--text-dim); }
+  .btn.ghost:hover { color: var(--text); border-color: var(--line-2); }
+  .btn.sm { padding: 4px 9px; font-size: 12px; }
+  .btn.danger:hover { border-color: var(--danger); color: var(--danger); }
+
+  /* ---------- 3-col body ---------- */
+  .body { display: grid; grid-template-columns: 280px 1fr 320px; height: 100%; min-height: 0; }
+
+  /* sidebar */
+  .sidebar { background: var(--bg-2); border-right: 1px solid var(--line); display: flex; flex-direction: column; min-height: 0; }
+  .sidebar .side-head { padding: 12px 14px 8px; }
+  .sb-row { display: flex; gap: 8px; }
+  .sb-search {
+    width: 100%; background: var(--panel); border: 1px solid var(--line);
+    color: var(--text); border-radius: 8px; padding: 7px 10px; font-size: 13px;
+  }
+  .sb-search:focus { outline: none; border-color: var(--accent); }
+  .filters { display: flex; flex-wrap: wrap; gap: 6px; padding: 10px 14px 6px; }
+  .chip {
+    font-size: 11px; padding: 4px 9px; border-radius: 20px;
+    border: 1px solid var(--line-2); color: var(--text-dim); background: transparent;
+  }
+  .chip.active { background: var(--panel-2); color: var(--text); border-color: var(--accent); }
+
+  .lanes { overflow-y: auto; padding: 6px 10px 30px; flex: 1; min-height: 0; }
+  .lane-head {
+    display: flex; align-items: center; gap: 8px;
+    font-size: 11px; text-transform: uppercase; letter-spacing: .6px;
+    color: var(--text-dim2); margin: 14px 4px 6px; font-weight: 700;
+  }
+  .lane-head .count { margin-left: auto; background: var(--panel); border-radius: 10px; padding: 1px 7px; color: var(--text-dim); }
+  .lane-head .swatch { width: 8px; height: 8px; border-radius: 3px; }
+
+  .card {
+    background: var(--panel); border: 1px solid var(--line);
+    border-radius: 9px; padding: 9px 11px; margin: 6px 2px;
+    cursor: pointer; transition: .12s; position: relative;
+  }
+  .card:hover { border-color: var(--line-2); transform: translateY(-1px); }
+  .card.sel { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent); }
+  .card .c-title { font-weight: 600; font-size: 13px; margin-bottom: 5px; line-height: 1.35; }
+  .card .c-meta { display: flex; align-items: center; gap: 7px; font-size: 11px; color: var(--text-dim2); }
+  .pill {
+    font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: .4px;
+    padding: 2px 7px; border-radius: 20px; border: 1px solid var(--line-2);
+  }
+  .empty-hint { color: var(--text-dim2); font-size: 12px; text-align: center; padding: 18px 8px; line-height: 1.6; }
+
+  /* editor */
+  .editor { display: flex; flex-direction: column; min-width: 0; min-height: 0; background: var(--bg); }
+  .ed-toolbar { display: flex; align-items: center; gap: 8px; padding: 10px 14px; border-bottom: 1px solid var(--line); flex-wrap: wrap; }
+  .ed-title {
+    flex: 1; min-width: 200px; background: transparent; border: none; color: var(--text);
+    font-size: 20px; font-weight: 700; padding: 4px 2px;
+  }
+  .ed-title:focus { outline: none; }
+  .seg { display: flex; background: var(--panel); border: 1px solid var(--line); border-radius: 8px; overflow: hidden; }
+  .seg button { background: transparent; border: none; color: var(--text-dim); padding: 6px 12px; font-size: 12px; font-weight: 600; }
+  .seg button.active { background: var(--panel-2); color: var(--text); }
+
+  .ed-sub { display: flex; align-items: center; gap: 10px; padding: 8px 14px; border-bottom: 1px solid var(--line); flex-wrap: wrap; }
+  .field { display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--text-dim); }
+  .field select, .field input {
+    background: var(--panel); border: 1px solid var(--line); color: var(--text);
+    border-radius: 7px; padding: 5px 8px; font-size: 12px;
+  }
+  .field select:focus, .field input:focus { outline: none; border-color: var(--accent); }
+  .counter { margin-left: auto; font-size: 11px; color: var(--text-dim2); font-variant-numeric: tabular-nums; }
+  .counter b { color: var(--text-dim); }
+  .counter.warn b { color: var(--draft); }
+  .counter.over b { color: var(--danger); }
+
+  .ed-main { flex: 1; min-height: 0; display: flex; }
+  .md-input {
+    flex: 1; background: transparent; border: none; color: var(--text);
+    font-family: var(--mono); font-size: 14px; line-height: 1.7; resize: none;
+    padding: 18px 22px; min-height: 0;
+  }
+  .md-input:focus { outline: none; }
+  .preview { flex: 1; overflow-y: auto; padding: 18px 26px; min-height: 0; }
+
+  /* markdown preview styles */
+  .md h1 { font-size: 26px; margin: 8px 0 14px; line-height: 1.25; }
+  .md h2 { font-size: 20px; margin: 24px 0 10px; border-bottom: 1px solid var(--line); padding-bottom: 6px; }
+  .md h3 { font-size: 16px; margin: 18px 0 8px; color: var(--accent-2); }
+  .md p { margin: 0 0 14px; }
+  .md a { color: var(--accent-2); }
+  .md ul, .md ol { margin: 0 0 14px; padding-left: 22px; }
+  .md li { margin: 4px 0; }
+  .md blockquote { border-left: 3px solid var(--accent); margin: 0 0 14px; padding: 4px 14px; color: var(--text-dim); background: var(--bg-2); border-radius: 0 8px 8px 0; }
+  .md code { font-family: var(--mono); background: var(--panel-2); padding: 1px 5px; border-radius: 5px; font-size: 13px; }
+  .md pre { background: var(--bg-2); border: 1px solid var(--line); padding: 14px; border-radius: 8px; overflow-x: auto; margin: 0 0 14px; }
+  .md pre code { background: none; padding: 0; }
+  .md img { max-width: 100%; border-radius: 8px; margin: 6px 0 14px; border: 1px solid var(--line); }
+  .md hr { border: none; border-top: 1px solid var(--line); margin: 22px 0; }
+  .md strong { color: #fff; }
+
+  .placeholder-stage { flex: 1; display: flex; align-items: center; justify-content: center; flex-direction: column; gap: 14px; color: var(--text-dim2); text-align: center; padding: 40px; }
+  .placeholder-stage .big { font-size: 40px; }
+
+  /* right panel */
+  .inspector { background: var(--bg-2); border-left: 1px solid var(--line); display: flex; flex-direction: column; min-height: 0; }
+  .insp-tabs { display: flex; border-bottom: 1px solid var(--line); }
+  .insp-tabs button { flex: 1; background: transparent; border: none; color: var(--text-dim); padding: 11px 4px; font-size: 12px; font-weight: 600; border-bottom: 2px solid transparent; }
+  .insp-tabs button.active { color: var(--text); border-bottom-color: var(--accent); }
+  .insp-body { overflow-y: auto; padding: 14px; flex: 1; min-height: 0; }
+
+  .tip-platform { font-size: 13px; font-weight: 700; color: var(--accent-2); margin: 0 0 10px; display: flex; align-items: center; gap: 8px; }
+  .tip-block { margin-bottom: 16px; }
+  .tip-block h4 { font-size: 11px; text-transform: uppercase; letter-spacing: .5px; color: var(--text-dim2); margin: 0 0 6px; }
+  .tip-list { list-style: none; margin: 0; padding: 0; }
+  .tip-list li { font-size: 12.5px; color: var(--text-dim); padding: 5px 0 5px 18px; position: relative; line-height: 1.5; border-bottom: 1px solid var(--line); }
+  .tip-list li:before { content: "›"; position: absolute; left: 4px; color: var(--accent); font-weight: 700; }
+  .tip-list li b { color: var(--text); }
+  .spec-grid { display: grid; grid-template-columns: auto 1fr; gap: 4px 12px; font-size: 12px; margin-bottom: 14px; }
+  .spec-grid dt { color: var(--text-dim2); }
+  .spec-grid dd { margin: 0; color: var(--text); font-weight: 600; }
+
+  /* images */
+  .dropzone {
+    border: 1.5px dashed var(--line-2); border-radius: 10px; padding: 22px 14px;
+    text-align: center; color: var(--text-dim2); font-size: 12px; transition: .15s; cursor: pointer;
+  }
+  .dropzone:hover, .dropzone.drag { border-color: var(--accent); color: var(--text-dim); background: var(--panel); }
+  .img-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 12px; }
+  .img-cell { position: relative; border: 1px solid var(--line); border-radius: 8px; overflow: hidden; background: var(--panel); }
+  .img-cell img { width: 100%; height: 84px; object-fit: cover; display: block; }
+  .img-cell .img-name { font-size: 10px; padding: 4px 6px; color: var(--text-dim); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .img-cell .img-actions { position: absolute; top: 4px; right: 4px; display: flex; gap: 4px; opacity: 0; transition: .15s; }
+  .img-cell:hover .img-actions { opacity: 1; }
+  .img-actions button { background: rgba(0,0,0,.6); border: none; color: #fff; border-radius: 5px; font-size: 11px; padding: 3px 6px; }
+
+  /* meta tab */
+  .meta-field { margin-bottom: 14px; }
+  .meta-field label { display: block; font-size: 11px; text-transform: uppercase; letter-spacing: .5px; color: var(--text-dim2); margin-bottom: 5px; }
+  .meta-field input, .meta-field select, .meta-field textarea {
+    width: 100%; background: var(--panel); border: 1px solid var(--line); color: var(--text);
+    border-radius: 7px; padding: 7px 9px; font-size: 13px;
+  }
+  .meta-field input:focus, .meta-field select:focus, .meta-field textarea:focus { outline: none; border-color: var(--accent); }
+  .tags-row { display: flex; flex-wrap: wrap; gap: 5px; }
+  .tag { font-size: 11px; background: var(--panel-2); border: 1px solid var(--line-2); border-radius: 20px; padding: 3px 9px; color: var(--text-dim); }
+
+  .save-state { font-size: 11px; color: var(--text-dim2); margin-left: 4px; }
+  .save-state.saved { color: var(--ready); }
+
+  /* toast */
+  .toast-wrap { position: fixed; bottom: 18px; left: 50%; transform: translateX(-50%); z-index: 50; display: flex; flex-direction: column; gap: 8px; align-items: center; }
+  .toast { background: var(--panel-2); border: 1px solid var(--line-2); color: var(--text); padding: 9px 16px; border-radius: 9px; font-size: 13px; box-shadow: 0 8px 30px -8px #000; animation: pop .2s; }
+  .toast.good { border-color: var(--ready); }
+  .toast.bad { border-color: var(--danger); }
+  @keyframes pop { from { opacity: 0; transform: translateY(8px); } }
+
+  /* modal */
+  .modal-bg { position: fixed; inset: 0; background: rgba(0,0,0,.6); display: none; align-items: center; justify-content: center; z-index: 40; }
+  .modal-bg.show { display: flex; }
+  .modal { background: var(--panel); border: 1px solid var(--line-2); border-radius: 12px; padding: 22px; width: 460px; max-width: 92vw; }
+  .modal h3 { margin: 0 0 6px; }
+  .modal p { color: var(--text-dim); font-size: 13px; margin: 0 0 16px; }
+  .modal .row { display: flex; gap: 10px; justify-content: flex-end; margin-top: 18px; }
+
+  kbd { font-family: var(--mono); font-size: 11px; background: var(--panel-2); border: 1px solid var(--line-2); border-bottom-width: 2px; border-radius: 5px; padding: 1px 5px; color: var(--text-dim); }
+</style>
+</head>
+<body>
+<div class="app">
+  <!-- ============ TOP BAR ============ -->
+  <header class="topbar">
+    <div class="brand">
+      <div class="dot"></div>
+      <div>Article Studio <small>· write · plan · publish</small></div>
+    </div>
+    <div class="spacer"></div>
+    <div class="folder-state" id="folderState" title="The bridge to Claude Code">
+      <span class="led"></span>
+      <span id="folderLabel">Not connected</span>
+    </div>
+    <button class="btn ghost sm" id="reloadBtn" title="Re-read articles from the folder">↻ Reload</button>
+    <button class="btn" id="connectBtn">🔗 Connect folder</button>
+    <button class="btn primary" id="newBtn">+ New article</button>
+    <button class="btn ghost sm" id="menuBtn" title="Backup / import / help">⋯</button>
+  </header>
+
+  <!-- ============ BODY ============ -->
+  <div class="body">
+    <!-- ---- SIDEBAR / PIPELINE ---- -->
+    <aside class="sidebar">
+      <div class="side-head">
+        <input class="sb-search" id="search" placeholder="Search articles…" />
+      </div>
+      <div class="filters" id="platformFilters"></div>
+      <div class="lanes" id="lanes"></div>
+    </aside>
+
+    <!-- ---- EDITOR ---- -->
+    <main class="editor" id="editor">
+      <div class="placeholder-stage" id="placeholder">
+        <div class="big">✍️</div>
+        <div>
+          <div style="font-size:15px;color:var(--text-dim);margin-bottom:6px;">No article open</div>
+          Create one with <b>+ New article</b>, or pick a card on the left.<br/>
+          Connect your <code>articles/</code> folder so Claude Code can read &amp; edit the same files.
+        </div>
+      </div>
+
+      <div id="edPane" style="display:none; flex-direction:column; flex:1; min-height:0;">
+        <div class="ed-toolbar">
+          <input class="ed-title" id="edTitle" placeholder="Untitled article" />
+          <span class="save-state" id="saveState">unsaved</span>
+          <div class="seg" id="viewSeg">
+            <button data-view="write" class="active">Write</button>
+            <button data-view="split">Split</button>
+            <button data-view="preview">Preview</button>
+          </div>
+          <button class="btn ghost sm" id="copyBtn" title="Copy body to clipboard">⧉ Copy</button>
+          <button class="btn ghost sm danger" id="deleteBtn">🗑</button>
+        </div>
+
+        <div class="ed-sub">
+          <div class="field">
+            <span>Platform</span>
+            <select id="edPlatform"></select>
+          </div>
+          <div class="field">
+            <span>Status</span>
+            <select id="edStatus">
+              <option value="idea">Idea</option>
+              <option value="drafting">Drafting</option>
+              <option value="ready">Ready</option>
+              <option value="posted">Posted</option>
+            </select>
+          </div>
+          <div class="counter" id="counter"></div>
+        </div>
+
+        <div class="ed-main" id="edMain">
+          <textarea class="md-input" id="mdInput" placeholder="# Start writing…&#10;&#10;Use Markdown. Drag images into the Images tab on the right."></textarea>
+          <div class="preview md" id="preview" style="display:none;"></div>
+        </div>
+      </div>
+    </main>
+
+    <!-- ---- INSPECTOR ---- -->
+    <aside class="inspector">
+      <div class="insp-tabs" id="inspTabs">
+        <button data-tab="tips" class="active">Platform tips</button>
+        <button data-tab="images">Images</button>
+        <button data-tab="meta">Meta</button>
+      </div>
+      <div class="insp-body" id="inspBody"></div>
+    </aside>
+  </div>
+</div>
+
+<div class="toast-wrap" id="toasts"></div>
+
+<!-- menu / help modal -->
+<div class="modal-bg" id="menuModal">
+  <div class="modal">
+    <h3>Studio menu</h3>
+    <p>Back up your work, or learn how the Claude Code bridge works.</p>
+    <div style="display:flex; flex-direction:column; gap:8px;">
+      <button class="btn" id="exportJsonBtn">⬇ Export backup (.json)</button>
+      <button class="btn" id="importJsonBtn">⬆ Import backup (.json)</button>
+      <button class="btn" id="syncAllBtn">💾 Save all to folder (.md)</button>
+      <button class="btn ghost" id="helpBtn">？ How the Claude Code bridge works</button>
+    </div>
+    <div class="row">
+      <button class="btn ghost" id="closeMenu">Close</button>
+    </div>
+  </div>
+</div>
+
+<input type="file" id="jsonFile" accept="application/json" style="display:none" />
+
+<script>
+/* ============================================================
+   Article Studio — single-file content desk
+   Bridge to Claude Code = Markdown files in a chosen folder
+   ============================================================ */
+
+const PLATFORMS = {
+  linkedin: {
+    label: "LinkedIn", color: "#7c9cff",
+    specs: { "Sweet spot": "1300–2000 chars", "Hook limit": "~210 chars (before 'see more')", "Hashtags": "3–5", "Images": "1200×627 or square 1080" },
+    tips: {
+      "Hook & structure": [
+        "<b>First 2 lines decide everything</b> — they show before 'see more'. Lead with a result, a tension, or a question.",
+        "Write in <b>short 1–2 line paragraphs</b> with blank lines between — wall-of-text kills reach.",
+        "End with one clear <b>question or CTA</b> to drive comments."
+      ],
+      "Reach mechanics": [
+        "Put <b>external links in the first comment</b>, not the post — links in-body suppress reach.",
+        "Front-load value; don't bury the point under a long preamble.",
+        "<b>3–5 hashtags</b> max, at the end. Mix one broad + a few niche (#Toastmasters #PublicSpeaking #IT)."
+      ],
+      "Style": [
+        "LinkedIn does NOT render markdown bold — use sparingly or Unicode bold for emphasis.",
+        "Emoji as lightweight bullets (▸ ✅ →) reads well; don't overdo it.",
+        "Document/carousel posts get strong dwell time for how-to IT content."
+      ]
+    }
+  },
+  medium: {
+    label: "Medium", color: "#5fd0a0",
+    specs: { "Ideal length": "~1600 words (7 min)", "Title": "H1", "Tags": "up to 5", "Cover": "1500px+ wide" },
+    tips: {
+      "Structure": [
+        "Use a <b>strong H1 title + optional subtitle (kicker)</b>. Subheads (H2) every 200–300 words.",
+        "Open with a <b>concrete scene or claim</b>, not 'In this article I will…'.",
+        "Add a <b>pull quote</b> or bold takeaway to break the rhythm."
+      ],
+      "Craft": [
+        "Markdown renders fully here — headings, lists, code blocks, blockquotes all work.",
+        "Add a <b>relevant cover image</b> (≥1500px). It drives the preview card.",
+        "Close with a takeaways list and a soft CTA (follow / subscribe)."
+      ],
+      "Discovery": [
+        "Pick <b>5 specific tags</b> over broad ones (e.g. 'Kubernetes' > 'Tech').",
+        "A clear, benefit-driven title beats clever wordplay for clicks."
+      ]
+    }
+  },
+  toastmasters: {
+    label: "Toastmasters", color: "#ffcf5c",
+    specs: { "Newsletter": "500–800 words", "Tone": "Encouraging, practical", "Audience": "Club members & guests" },
+    tips: {
+      "Voice": [
+        "Warm, <b>encouraging, member-to-member</b> tone. Celebrate progress, not just polish.",
+        "Tie back to <b>Pathways / evaluations / leadership</b> where relevant.",
+        "Use a personal story or club moment as the anchor."
+      ],
+      "Structure": [
+        "Clear <b>opening – body – call to action</b> (mirror a good speech).",
+        "Give <b>3 practical takeaways</b> a reader can use at the next meeting.",
+        "End by inviting them to a meeting / role / contest."
+      ],
+      "IT crossover": [
+        "Great place to repurpose an IT talk into 'what speaking taught me about explaining tech'.",
+        "Keep jargon light — mixed-audience newsletter."
+      ]
+    }
+  },
+  luma: {
+    label: "Luma event", color: "#ff8a3d",
+    specs: { "Cover": "16:9 (1920×1080)", "Title": "Clear + value prop", "Body": "Scannable, agenda-led" },
+    tips: {
+      "Event page": [
+        "Title = <b>what + value</b> ('Hands-on Kubernetes Night — ship your first deploy').",
+        "First line states <b>who it's for</b> and what they'll leave with.",
+        "Add a short <b>agenda / timeline</b> and any prerequisites."
+      ],
+      "Conversion": [
+        "<b>16:9 cover image</b> with the title legible as a thumbnail.",
+        "List <b>hosts/speakers</b> with a one-line credibility note.",
+        "Clear date, time, timezone, location/link + a single RSVP CTA."
+      ],
+      "Promo": [
+        "Reuse the hook as your LinkedIn post; link the Luma page in the first comment.",
+        "Post a recap afterward to feed the next event."
+      ]
+    }
+  },
+  blog: {
+    label: "Blog / generic", color: "#9aa4b5",
+    specs: { "Length": "flexible", "Format": "Full markdown", "SEO": "1 H1, descriptive H2s" },
+    tips: {
+      "Fundamentals": [
+        "One <b>H1</b>, descriptive <b>H2/H3</b> hierarchy for skimmability and SEO.",
+        "Lead with the answer; expand below (inverted pyramid).",
+        "Add a meta description (use the Summary field in Meta tab)."
+      ],
+      "Craft": [
+        "Code blocks for IT content; annotate why, not just what.",
+        "One idea per paragraph; cut every sentence that doesn't earn its place."
+      ]
+    }
+  }
+};
+
+const STATUSES = [
+  { key: "idea",     label: "Ideas",    color: "var(--idea)" },
+  { key: "drafting", label: "Drafting", color: "var(--draft)" },
+  { key: "ready",    label: "Ready to post", color: "var(--ready)" },
+  { key: "posted",   label: "Posted",   color: "var(--posted)" }
+];
+
+/* ---------------- state ---------------- */
+let state = { articles: [] };
+let currentId = null;
+let dirHandle = null;          // FileSystemDirectoryHandle (folder bridge)
+let imagesDirHandle = null;
+let view = "write";
+let inspTab = "tips";
+let filterPlatform = "all";
+let searchText = "";
+let saveTimer = null;
+
+const LS_KEY = "articleStudio.v1";
+const $ = sel => document.querySelector(sel);
+const $$ = sel => [...document.querySelectorAll(sel)];
+const uid = () => "a" + Math.random().toString(36).slice(2, 9);
+const nowISO = () => new Date().toISOString();
+function slugify(s) {
+  return (s || "untitled").toLowerCase().replace(/[^\w\s-]/g, "").trim().replace(/\s+/g, "-").slice(0, 60) || "untitled";
+}
+function current() { return state.articles.find(a => a.id === currentId); }
+
+/* ---------------- persistence (localStorage) ---------------- */
+function saveLocal() {
+  try { localStorage.setItem(LS_KEY, JSON.stringify(state)); } catch (e) { /* quota */ }
+}
+function loadLocal() {
+  try {
+    const raw = localStorage.getItem(LS_KEY);
+    if (raw) state = JSON.parse(raw);
+  } catch (e) {}
+  if (!state.articles) state.articles = [];
+}
+
+/* ---------------- markdown <-> file ---------------- */
+function toFrontmatter(a) {
+  const fm = [
+    "---",
+    `title: ${escYaml(a.title)}`,
+    `platform: ${a.platform}`,
+    `status: ${a.status}`,
+    `tags: [${(a.tags || []).map(t => escYaml(t)).join(", ")}]`,
+    `summary: ${escYaml(a.summary || "")}`,
+    `images: [${(a.images || []).map(im => escYaml(im.path || im.name)).join(", ")}]`,
+    `created: ${a.created}`,
+    `updated: ${a.updated}`,
+    `id: ${a.id}`,
+    "---",
+    ""
+  ].join("\n");
+  return fm + (a.body || "");
+}
+function escYaml(s) {
+  s = (s == null ? "" : String(s));
+  if (/[:#\[\]{}",]|^\s|\s$/.test(s)) return JSON.stringify(s);
+  return s;
+}
+function parseFrontmatter(text, fallbackId) {
+  const m = text.match(/^---\n([\s\S]*?)\n---\n?/);
+  const a = { id: fallbackId, title: "Untitled", platform: "linkedin", status: "drafting", tags: [], summary: "", images: [], created: nowISO(), updated: nowISO(), body: text };
+  if (!m) { a.body = text; return a; }
+  a.body = text.slice(m[0].length);
+  const lines = m[1].split("\n");
+  for (const line of lines) {
+    const idx = line.indexOf(":");
+    if (idx < 0) continue;
+    const key = line.slice(0, idx).trim();
+    let val = line.slice(idx + 1).trim();
+    if (key === "tags" || key === "images") {
+      val = val.replace(/^\[|\]$/g, "").trim();
+      const arr = val ? val.split(",").map(s => unesc(s.trim())).filter(Boolean) : [];
+      if (key === "tags") a.tags = arr;
+      else a.images = arr.map(p => ({ name: p.split("/").pop(), path: p }));
+    } else if (a.hasOwnProperty(key) || ["title","platform","status","summary","created","updated","id"].includes(key)) {
+      a[key] = unesc(val);
+    }
+  }
+  if (!PLATFORMS[a.platform]) a.platform = "blog";
+  return a;
+}
+function unesc(s) {
+  if (s.startsWith('"') && s.endsWith('"')) { try { return JSON.parse(s); } catch (e) {} }
+  return s;
+}
+
+/* ---------------- folder bridge (File System Access API) ---------------- */
+const fsSupported = "showDirectoryPicker" in window;
+
+async function connectFolder() {
+  if (!fsSupported) {
+    toast("This browser can't open folders directly. Use Chrome/Edge/Brave, or use Export from the ⋯ menu.", "bad");
+    return;
+  }
+  try {
+    dirHandle = await window.showDirectoryPicker({ id: "articleStudio", mode: "readwrite" });
+    imagesDirHandle = await dirHandle.getDirectoryHandle("images", { create: true });
+    setFolderState(dirHandle.name);
+    await importFromFolder();
+    toast("Folder connected. Claude Code can now read & write these files.", "good");
+  } catch (e) {
+    if (e.name !== "AbortError") toast("Couldn't connect folder: " + e.message, "bad");
+  }
+}
+
+function setFolderState(name) {
+  const el = $("#folderState");
+  if (name) { el.classList.add("on"); $("#folderLabel").textContent = name + "/"; }
+  else { el.classList.remove("on"); $("#folderLabel").textContent = "Not connected"; }
+}
+
+async function importFromFolder() {
+  if (!dirHandle) return;
+  const found = [];
+  for await (const [name, handle] of dirHandle.entries()) {
+    if (handle.kind === "file" && name.endsWith(".md") && name.toLowerCase() !== "readme.md") {
+      try {
+        const file = await handle.getFile();
+        const text = await file.text();
+        const a = parseFrontmatter(text, uid());
+        a._file = name;
+        found.push(a);
+      } catch (e) {}
+    }
+  }
+  // merge: folder is source of truth for files it has (match by id, else by filename)
+  const byId = new Map(state.articles.map(a => [a.id, a]));
+  for (const fa of found) {
+    if (byId.has(fa.id)) {
+      Object.assign(byId.get(fa.id), fa);
+    } else {
+      state.articles.push(fa);
+    }
+  }
+  saveLocal();
+  renderAll();
+  if (found.length) toast(`Loaded ${found.length} article${found.length>1?"s":""} from folder.`, "good");
+}
+
+async function writeArticleFile(a) {
+  if (!dirHandle) return false;
+  const fname = a._file || (slugify(a.title) + ".md");
+  a._file = fname;
+  try {
+    const fh = await dirHandle.getFileHandle(fname, { create: true });
+    const w = await fh.createWritable();
+    await w.write(toFrontmatter(a));
+    await w.close();
+    return true;
+  } catch (e) { toast("Save to folder failed: " + e.message, "bad"); return false; }
+}
+
+async function deleteArticleFile(a) {
+  if (!dirHandle || !a._file) return;
+  try { await dirHandle.removeEntry(a._file); } catch (e) {}
+}
+
+async function writeImageFile(slug, file) {
+  if (!imagesDirHandle) return null;
+  const safe = slug + "-" + Date.now().toString(36) + "-" + file.name.replace(/[^\w.\-]/g, "_");
+  try {
+    const fh = await imagesDirHandle.getFileHandle(safe, { create: true });
+    const w = await fh.createWritable();
+    await w.write(file);
+    await w.close();
+    return "images/" + safe;
+  } catch (e) { toast("Image save failed: " + e.message, "bad"); return null; }
+}
+
+async function resolveImageSrc(im) {
+  if (im.dataUrl) return im.dataUrl;
+  if (im.path && imagesDirHandle) {
+    try {
+      const fname = im.path.split("/").pop();
+      const fh = await imagesDirHandle.getFileHandle(fname);
+      const file = await fh.getFile();
+      return URL.createObjectURL(file);
+    } catch (e) { return null; }
+  }
+  return null;
+}
+
+/* ---------------- CRUD ---------------- */
+function newArticle() {
+  const a = {
+    id: uid(), title: "", platform: filterPlatform !== "all" ? filterPlatform : "linkedin",
+    status: "idea", tags: [], summary: "", images: [], body: "",
+    created: nowISO(), updated: nowISO()
+  };
+  state.articles.unshift(a);
+  currentId = a.id;
+  saveLocal();
+  renderAll();
+  openEditor();
+  $("#edTitle").focus();
+  scheduleSave();
+}
+
+function deleteCurrent() {
+  const a = current();
+  if (!a) return;
+  if (!confirm(`Delete "${a.title || "Untitled"}"? This also removes its .md file from the folder.`)) return;
+  deleteArticleFile(a);
+  state.articles = state.articles.filter(x => x.id !== a.id);
+  currentId = null;
+  saveLocal();
+  renderAll();
+  closeEditor();
+  toast("Deleted.");
+}
+
+function markSaved(saved) {
+  const el = $("#saveState");
+  if (saved) { el.textContent = dirHandle ? "saved → folder" : "saved (local)"; el.classList.add("saved"); }
+  else { el.textContent = "editing…"; el.classList.remove("saved"); }
+}
+
+function scheduleSave() {
+  markSaved(false);
+  clearTimeout(saveTimer);
+  saveTimer = setTimeout(commitSave, 700);
+}
+
+async function commitSave() {
+  const a = current();
+  if (!a) return;
+  a.updated = nowISO();
+  saveLocal();
+  if (dirHandle) await writeArticleFile(a);
+  markSaved(true);
+  renderLanes();   // reflect title/status changes in sidebar
+}
+
+/* ---------------- rendering ---------------- */
+function renderAll() { renderPlatformFilters(); renderLanes(); renderInspector(); }
+
+function renderPlatformFilters() {
+  const wrap = $("#platformFilters");
+  const items = [["all", "All"]].concat(Object.entries(PLATFORMS).map(([k, v]) => [k, v.label]));
+  wrap.innerHTML = items.map(([k, lbl]) =>
+    `<button class="chip ${filterPlatform===k?"active":""}" data-pf="${k}">${lbl}</button>`).join("");
+  $$("#platformFilters .chip").forEach(c => c.onclick = () => { filterPlatform = c.dataset.pf; renderAll(); });
+}
+
+function visibleArticles() {
+  return state.articles.filter(a => {
+    if (filterPlatform !== "all" && a.platform !== filterPlatform) return false;
+    if (searchText) {
+      const hay = (a.title + " " + a.body + " " + (a.tags||[]).join(" ")).toLowerCase();
+      if (!hay.includes(searchText)) return false;
+    }
+    return true;
+  });
+}
+
+function renderLanes() {
+  const lanes = $("#lanes");
+  const arts = visibleArticles();
+  let html = "";
+  for (const st of STATUSES) {
+    const inLane = arts.filter(a => a.status === st.key);
+    html += `<div class="lane-head"><span class="swatch" style="background:${st.color}"></span>${st.label}<span class="count">${inLane.length}</span></div>`;
+    for (const a of inLane) {
+      const p = PLATFORMS[a.platform] || PLATFORMS.blog;
+      html += `<div class="card ${a.id===currentId?"sel":""}" data-id="${a.id}">
+        <div class="c-title">${esc(a.title) || '<span style="color:var(--text-dim2)">Untitled</span>'}</div>
+        <div class="c-meta">
+          <span class="pill" style="border-color:${p.color};color:${p.color}">${p.label}</span>
+          <span>${wordCount(a.body)} words</span>
+          ${a._file ? '<span title="synced to folder">💾</span>' : ''}
+        </div>
+      </div>`;
+    }
+  }
+  if (!arts.length) {
+    html += `<div class="empty-hint">No articles yet.<br/>Hit <b>+ New article</b> to start your pipeline.</div>`;
+  }
+  lanes.innerHTML = html;
+  $$("#lanes .card").forEach(c => c.onclick = () => { currentId = c.dataset.id; renderLanes(); openEditor(); });
+}
+
+/* ---------------- editor ---------------- */
+function openEditor() {
+  const a = current();
+  if (!a) return closeEditor();
+  $("#placeholder").style.display = "none";
+  $("#edPane").style.display = "flex";
+  $("#edTitle").value = a.title;
+  $("#mdInput").value = a.body;
+  buildPlatformSelect();
+  $("#edPlatform").value = a.platform;
+  $("#edStatus").value = a.status;
+  markSaved(true);
+  updateCounter();
+  renderInspector();
+  applyView();
+  if (view !== "write") renderPreview();
+}
+function closeEditor() {
+  $("#placeholder").style.display = "flex";
+  $("#edPane").style.display = "none";
+}
+function buildPlatformSelect() {
+  $("#edPlatform").innerHTML = Object.entries(PLATFORMS).map(([k, v]) => `<option value="${k}">${v.label}</option>`).join("");
+}
+
+function applyView() {
+  $$("#viewSeg button").forEach(b => b.classList.toggle("active", b.dataset.view === view));
+  const input = $("#mdInput"), prev = $("#preview");
+  if (view === "write") { input.style.display = "block"; prev.style.display = "none"; }
+  else if (view === "preview") { input.style.display = "none"; prev.style.display = "block"; }
+  else { input.style.display = "block"; prev.style.display = "block"; input.style.flex = "1"; prev.style.flex = "1"; prev.style.borderLeft = "1px solid var(--line)"; }
+}
+
+function updateCounter() {
+  const a = current(); if (!a) return;
+  const body = $("#mdInput").value;
+  const chars = body.length, words = wordCount(body);
+  const p = PLATFORMS[a.platform];
+  const c = $("#counter");
+  let extra = "";
+  let cls = "counter";
+  if (a.platform === "linkedin") {
+    const hook = body.replace(/^#.*$/m, "").trim().slice(0, 210);
+    const limit = 3000;
+    if (chars > limit) cls += " over"; else if (chars > 2200) cls += " warn";
+    extra = ` · <b>${chars}</b>/3000 chars · hook uses <b>${Math.min(chars,210)}</b>/210`;
+  } else if (a.platform === "medium" || a.platform === "blog") {
+    const mins = Math.max(1, Math.round(words / 220));
+    extra = ` · <b>${mins}</b> min read`;
+  } else if (a.platform === "toastmasters") {
+    if (words > 850) cls += " warn";
+    extra = ` · target 500–800`;
+  }
+  c.className = cls;
+  c.innerHTML = `<b>${words}</b> words${extra}`;
+}
+
+/* ---------------- inspector ---------------- */
+function renderInspector() {
+  $$("#inspTabs button").forEach(b => b.classList.toggle("active", b.dataset.tab === inspTab));
+  const body = $("#inspBody");
+  const a = current();
+  if (inspTab === "tips") body.innerHTML = renderTips(a);
+  else if (inspTab === "images") renderImages(body, a);
+  else body.innerHTML = renderMeta(a);
+  if (inspTab === "meta") wireMeta();
+  if (inspTab === "images") wireImages();
+}
+
+function renderTips(a) {
+  const pk = a ? a.platform : "linkedin";
+  const p = PLATFORMS[pk];
+  let html = `<div class="tip-platform"><span class="swatch" style="width:9px;height:9px;border-radius:3px;background:${p.color}"></span>${p.label} playbook</div>`;
+  html += `<dl class="spec-grid">`;
+  for (const [k, v] of Object.entries(p.specs)) html += `<dt>${k}</dt><dd>${v}</dd>`;
+  html += `</dl>`;
+  for (const [section, list] of Object.entries(p.tips)) {
+    html += `<div class="tip-block"><h4>${section}</h4><ul class="tip-list">`;
+    for (const li of list) html += `<li>${li}</li>`;
+    html += `</ul></div>`;
+  }
+  if (!a) html += `<div class="empty-hint">Open an article to tailor tips to its platform.</div>`;
+  return html;
+}
+
+function renderMeta(a) {
+  if (!a) return `<div class="empty-hint">No article open.</div>`;
+  return `
+    <div class="meta-field">
+      <label>Summary / meta description</label>
+      <textarea id="metaSummary" rows="3" placeholder="One-line teaser used for SEO, Luma blurb, LinkedIn hook…">${esc(a.summary||"")}</textarea>
+    </div>
+    <div class="meta-field">
+      <label>Tags <span style="text-transform:none;color:var(--text-dim2)">(comma separated)</span></label>
+      <input id="metaTags" value="${esc((a.tags||[]).join(", "))}" placeholder="toastmasters, leadership, devops" />
+      <div class="tags-row" style="margin-top:8px">${(a.tags||[]).map(t=>`<span class="tag">${esc(t)}</span>`).join("")}</div>
+    </div>
+    <div class="meta-field">
+      <label>File</label>
+      <input value="${esc(a._file || (slugify(a.title)+'.md (on save)'))}" readonly style="color:var(--text-dim)" />
+    </div>
+    <div class="meta-field">
+      <label>Timeline</label>
+      <div style="font-size:12px;color:var(--text-dim)">Created ${fmtDate(a.created)}<br/>Updated ${fmtDate(a.updated)}</div>
+    </div>`;
+}
+function wireMeta() {
+  const a = current(); if (!a) return;
+  const s = $("#metaSummary"), t = $("#metaTags");
+  if (s) s.oninput = () => { a.summary = s.value; scheduleSave(); };
+  if (t) t.onchange = () => {
+    a.tags = t.value.split(",").map(x => x.trim()).filter(Boolean);
+    scheduleSave(); renderInspector();
+  };
+}
+
+async function renderImages(body, a) {
+  if (!a) { body.innerHTML = `<div class="empty-hint">No article open.</div>`; return; }
+  body.innerHTML = `
+    <div class="dropzone" id="dropzone">
+      <div style="font-size:22px;margin-bottom:6px">🖼️</div>
+      Drag images here or <b>click to pick</b>.<br/>
+      ${dirHandle ? "Saved into <code>images/</code> in your folder." : "Stored locally — connect a folder to save real files."}
+    </div>
+    <input type="file" id="imgInput" accept="image/*" multiple style="display:none" />
+    <div class="img-grid" id="imgGrid"></div>`;
+  const grid = $("#imgGrid");
+  for (const im of (a.images || [])) {
+    const src = await resolveImageSrc(im);
+    const cell = document.createElement("div");
+    cell.className = "img-cell";
+    cell.innerHTML = `
+      ${src ? `<img src="${src}" />` : `<div style="height:84px;display:flex;align-items:center;justify-content:center;color:var(--text-dim2);font-size:11px">missing</div>`}
+      <div class="img-name">${esc(im.name)}</div>
+      <div class="img-actions">
+        <button data-act="md" title="Insert into article">＋md</button>
+        <button data-act="rm" title="Remove">✕</button>
+      </div>`;
+    cell.querySelector('[data-act="md"]').onclick = () => insertImageMarkdown(im);
+    cell.querySelector('[data-act="rm"]').onclick = () => { a.images = a.images.filter(x => x !== im); scheduleSave(); renderInspector(); };
+    grid.appendChild(cell);
+  }
+}
+function wireImages() {
+  const dz = $("#dropzone"), input = $("#imgInput");
+  if (!dz) return;
+  dz.onclick = () => input.click();
+  input.onchange = () => handleFiles(input.files);
+  dz.ondragover = e => { e.preventDefault(); dz.classList.add("drag"); };
+  dz.ondragleave = () => dz.classList.remove("drag");
+  dz.ondrop = e => { e.preventDefault(); dz.classList.remove("drag"); handleFiles(e.dataTransfer.files); };
+}
+async function handleFiles(files) {
+  const a = current(); if (!a) return;
+  const slug = slugify(a.title);
+  for (const file of files) {
+    if (!file.type.startsWith("image/")) continue;
+    if (dirHandle) {
+      const path = await writeImageFile(slug, file);
+      if (path) a.images.push({ name: file.name, path });
+    } else {
+      const dataUrl = await fileToDataUrl(file);
+      a.images.push({ name: file.name, dataUrl });
+    }
+  }
+  scheduleSave();
+  renderInspector();
+  toast("Image added.");
+}
+function insertImageMarkdown(im) {
+  const a = current(); if (!a) return;
+  const ref = im.path || im.dataUrl;
+  const ta = $("#mdInput");
+  const snippet = `\n![${im.name}](${ref})\n`;
+  const pos = ta.selectionStart || ta.value.length;
+  ta.value = ta.value.slice(0, pos) + snippet + ta.value.slice(pos);
+  a.body = ta.value;
+  updateCounter();
+  if (view !== "write") renderPreview();
+  scheduleSave();
+}
+
+/* ---------------- markdown preview (compact renderer) ---------------- */
+function esc(s) { return (s == null ? "" : String(s)).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;"); }
+
+function mdToHtml(src) {
+  if (!src) return '<p style="color:var(--text-dim2)">Nothing to preview yet…</p>';
+  const lines = src.replace(/\r\n/g, "\n").split("\n");
+  let html = "", i = 0;
+  const inline = t => esc(t)
+    .replace(/!\[([^\]]*)\]\(([^)]+)\)/g, '<img alt="$1" src="$2" />')
+    .replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" target="_blank" rel="noopener">$1</a>')
+    .replace(/\*\*([^*]+)\*\*/g, "<strong>$1</strong>")
+    .replace(/(^|[^*])\*([^*]+)\*/g, "$1<em>$2</em>")
+    .replace(/`([^`]+)`/g, "<code>$1</code>");
+  while (i < lines.length) {
+    let line = lines[i];
+    if (/^```/.test(line)) {
+      let code = ""; i++;
+      while (i < lines.length && !/^```/.test(lines[i])) { code += lines[i] + "\n"; i++; }
+      html += "<pre><code>" + esc(code) + "</code></pre>"; i++; continue;
+    }
+    if (/^\s*$/.test(line)) { i++; continue; }
+    let h = line.match(/^(#{1,6})\s+(.*)$/);
+    if (h) { const lvl = h[1].length; html += `<h${lvl}>${inline(h[2])}</h${lvl}>`; i++; continue; }
+    if (/^\s*>\s?/.test(line)) {
+      let q = "";
+      while (i < lines.length && /^\s*>\s?/.test(lines[i])) { q += lines[i].replace(/^\s*>\s?/, "") + " "; i++; }
+      html += `<blockquote>${inline(q.trim())}</blockquote>`; continue;
+    }
+    if (/^\s*(-{3,}|\*{3,})\s*$/.test(line)) { html += "<hr/>"; i++; continue; }
+    if (/^\s*([-*+])\s+/.test(line)) {
+      html += "<ul>";
+      while (i < lines.length && /^\s*([-*+])\s+/.test(lines[i])) { html += `<li>${inline(lines[i].replace(/^\s*([-*+])\s+/, ""))}</li>`; i++; }
+      html += "</ul>"; continue;
+    }
+    if (/^\s*\d+\.\s+/.test(line)) {
+      html += "<ol>";
+      while (i < lines.length && /^\s*\d+\.\s+/.test(lines[i])) { html += `<li>${inline(lines[i].replace(/^\s*\d+\.\s+/, ""))}</li>`; i++; }
+      html += "</ol>"; continue;
+    }
+    let para = line;
+    while (i + 1 < lines.length && !/^\s*$/.test(lines[i + 1]) && !/^(#{1,6}\s|\s*>|\s*[-*+]\s|\s*\d+\.\s|```)/.test(lines[i + 1])) {
+      i++; para += " " + lines[i];
+    }
+    html += `<p>${inline(para)}</p>`; i++;
+  }
+  return html;
+}
+async function renderPreview() {
+  const a = current(); if (!a) return;
+  let html = mdToHtml($("#mdInput").value);
+  $("#preview").innerHTML = html;
+  // resolve folder-stored images in preview
+  for (const img of $$("#preview img")) {
+    const src = img.getAttribute("src");
+    if (src && src.startsWith("images/")) {
+      const im = (a.images || []).find(x => x.path === src);
+      if (im) { const r = await resolveImageSrc(im); if (r) img.src = r; }
+    }
+  }
+}
+
+/* ---------------- backup / import ---------------- */
+function exportJson() {
+  const blob = new Blob([JSON.stringify(state, null, 2)], { type: "application/json" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url; a.download = "article-studio-backup.json"; a.click();
+  URL.revokeObjectURL(url);
+}
+function importJson(file) {
+  const r = new FileReader();
+  r.onload = () => {
+    try {
+      const data = JSON.parse(r.result);
+      if (data.articles) { state = data; saveLocal(); renderAll(); closeMenu(); toast("Backup imported.", "good"); }
+    } catch (e) { toast("Invalid backup file.", "bad"); }
+  };
+  r.readAsText(file);
+}
+async function syncAll() {
+  if (!dirHandle) { toast("Connect a folder first.", "bad"); return; }
+  let n = 0;
+  for (const a of state.articles) { if (await writeArticleFile(a)) n++; }
+  saveLocal(); renderLanes(); closeMenu();
+  toast(`Saved ${n} article${n!==1?"s":""} to ${dirHandle.name}/`, "good");
+}
+
+/* ---------------- helpers ---------------- */
+function wordCount(s) { return (s || "").trim() ? s.trim().split(/\s+/).length : 0; }
+function fmtDate(iso) { try { return new Date(iso).toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short" }); } catch (e) { return iso; } }
+function toast(msg, kind) {
+  const t = document.createElement("div");
+  t.className = "toast " + (kind || "");
+  t.textContent = msg;
+  $("#toasts").appendChild(t);
+  setTimeout(() => { t.style.opacity = "0"; t.style.transition = ".3s"; }, 2600);
+  setTimeout(() => t.remove(), 3000);
+}
+function fileToDataUrl(file) { return new Promise(res => { const r = new FileReader(); r.onload = () => res(r.result); r.readAsDataURL(file); }); }
+function closeMenu() { $("#menuModal").classList.remove("show"); }
+
+/* ---------------- events ---------------- */
+$("#connectBtn").onclick = connectFolder;
+$("#reloadBtn").onclick = () => dirHandle ? importFromFolder() : toast("Connect a folder first.", "bad");
+$("#newBtn").onclick = newArticle;
+$("#menuBtn").onclick = () => $("#menuModal").classList.add("show");
+$("#closeMenu").onclick = closeMenu;
+$("#menuModal").onclick = e => { if (e.target.id === "menuModal") closeMenu(); };
+
+$("#exportJsonBtn").onclick = exportJson;
+$("#importJsonBtn").onclick = () => $("#jsonFile").click();
+$("#jsonFile").onchange = e => { if (e.target.files[0]) importJson(e.target.files[0]); };
+$("#syncAllBtn").onclick = syncAll;
+$("#helpBtn").onclick = () => { closeMenu(); showHelp(); };
+
+$("#search").oninput = e => { searchText = e.target.value.toLowerCase(); renderLanes(); };
+
+$("#edTitle").oninput = () => { const a = current(); if (a) { a.title = $("#edTitle").value; scheduleSave(); } };
+$("#mdInput").oninput = () => { const a = current(); if (a) { a.body = $("#mdInput").value; updateCounter(); if (view !== "write") renderPreview(); scheduleSave(); } };
+$("#edPlatform").onchange = () => { const a = current(); if (a) { a.platform = $("#edPlatform").value; updateCounter(); renderInspector(); renderLanes(); scheduleSave(); } };
+$("#edStatus").onchange = () => { const a = current(); if (a) { a.status = $("#edStatus").value; renderLanes(); scheduleSave(); } };
+$("#deleteBtn").onclick = deleteCurrent;
+$("#copyBtn").onclick = () => { const a = current(); if (a) { navigator.clipboard.writeText(a.body || ""); toast("Body copied."); } };
+
+$$("#viewSeg button").forEach(b => b.onclick = () => { view = b.dataset.view; applyView(); if (view !== "write") renderPreview(); });
+$$("#inspTabs button").forEach(b => b.onclick = () => { inspTab = b.dataset.tab; renderInspector(); });
+
+document.addEventListener("keydown", e => {
+  if ((e.metaKey || e.ctrlKey) && e.key === "s") { e.preventDefault(); commitSave(); toast("Saved."); }
+  if ((e.metaKey || e.ctrlKey) && e.key === "n" && !e.shiftKey) { e.preventDefault(); newArticle(); }
+});
+
+function showHelp() {
+  $("#menuModal").classList.add("show");
+  const m = $("#menuModal .modal");
+  m.innerHTML = `
+    <h3>How the Claude Code bridge works</h3>
+    <p>This app and Claude Code share the same files — no server in between.</p>
+    <ol style="font-size:13px;color:var(--text-dim);line-height:1.7;padding-left:18px">
+      <li>Click <b>🔗 Connect folder</b> and pick <kbd>article_publisher/articles</kbd>.</li>
+      <li>Every article is saved as a <kbd>.md</kbd> file with YAML front-matter (title, platform, status, tags, images).</li>
+      <li>In Claude Code, just say e.g. <i>"polish the LinkedIn post in articles/, tighten the hook"</i> — it edits the same file.</li>
+      <li>Hit <b>↻ Reload</b> here to pull Claude's edits back into the app.</li>
+      <li>Images land in <kbd>articles/images/</kbd> and are referenced by relative path, so Medium/Luma uploads and Claude both see them.</li>
+    </ol>
+    <p style="margin-top:14px;font-size:12px">No folder support? You're on Safari/Firefox. Use <b>Export</b> / <b>Save all</b> from this menu and point Claude at the downloaded files instead.</p>
+    <div class="row"><button class="btn primary" onclick="document.getElementById('menuModal').classList.remove('show');location.reload? null:null;document.getElementById('menuModal').classList.remove('show')">Got it</button></div>`;
+  m.querySelector(".btn.primary").onclick = closeMenu;
+}
+
+/* ---------------- boot ---------------- */
+loadLocal();
+if (!fsSupported) { $("#connectBtn").textContent = "🔗 Connect (Chrome/Edge)"; }
+renderAll();
+applyView();
+// open most recent if any
+if (state.articles.length) { currentId = state.articles[0].id; openEditor(); }
+</script>
+</body>
+</html>

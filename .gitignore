@@ -1,0 +1,10 @@
+# Local backups exported from the app
+article-studio-backup.json
+
+# OS noise
+.DS_Store
+
+# User-uploaded images (kept out of version control by default).
+# Remove these two lines if you want images committed too.
+articles/images/*
+!articles/images/.gitkeep
