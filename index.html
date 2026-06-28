@@ -224,6 +224,13 @@
   .save-state { font-size: 11px; color: var(--text-dim2); margin-left: 4px; }
   .save-state.saved { color: var(--ready); }
 
+  .conflict-bar {
+    display: flex; align-items: center; gap: 10px;
+    background: rgba(255,107,107,.12); border-bottom: 1px solid var(--danger);
+    color: var(--accent-2); padding: 8px 14px; font-size: 12.5px;
+  }
+  .conflict-bar .btn { background: var(--panel); }
+
   /* toast */
   .toast-wrap { position: fixed; bottom: 18px; left: 50%; transform: translateX(-50%); z-index: 50; display: flex; flex-direction: column; gap: 8px; align-items: center; }
   .toast { background: var(--panel-2); border: 1px solid var(--line-2); color: var(--text); padding: 9px 16px; border-radius: 9px; font-size: 13px; box-shadow: 0 8px 30px -8px #000; animation: pop .2s; }
@@ -311,6 +318,13 @@
             </select>
           </div>
           <div class="counter" id="counter"></div>
+        </div>
+
+        <div class="conflict-bar" id="conflictBar" style="display:none;">
+          <span>⚠ This file changed outside the app (Claude Code?). Your edits are kept here, not yet saved to disk.</span>
+          <span style="flex:1"></span>
+          <button class="btn sm" id="keepMine">Save my version</button>
+          <button class="btn sm ghost" id="loadTheirs">Load file</button>
         </div>
 
         <div class="ed-main" id="edMain">
@@ -487,8 +501,18 @@ function slugify(s) {
 function current() { return state.articles.find(a => a.id === currentId); }
 
 /* ---------------- persistence (localStorage) ---------------- */
+let lsWarned = false;
 function saveLocal() {
-  try { localStorage.setItem(LS_KEY, JSON.stringify(state)); } catch (e) { /* quota */ }
+  try {
+    localStorage.setItem(LS_KEY, JSON.stringify(state));
+    lsWarned = false;
+  } catch (e) {
+    // quota exceeded etc. — never fail silently, that's how work gets lost
+    if (!lsWarned) {
+      lsWarned = true;
+      toast("⚠ Local storage is full — recent changes may not persist. Connect a folder or export a backup.", "bad");
+    }
+  }
 }
 function loadLocal() {
   try {
@@ -496,6 +520,78 @@ function loadLocal() {
     if (raw) state = JSON.parse(raw);
   } catch (e) {}
   if (!state.articles) state.articles = [];
+}
+
+/* ---------------- IndexedDB (image blobs, browser-only fallback) ---------------- */
+/* Text stays in localStorage (tiny). Images are blobs — base64 in localStorage
+   blows the ~5MB quota fast, so blobs live here instead (no inflation, big quota). */
+const IDB_NAME = "articleStudio", IDB_STORE = "images";
+let _idb = null;
+function idb() {
+  if (_idb) return _idb;
+  _idb = new Promise((res, rej) => {
+    const req = indexedDB.open(IDB_NAME, 1);
+    req.onupgradeneeded = () => req.result.createObjectStore(IDB_STORE);
+    req.onsuccess = () => res(req.result);
+    req.onerror = () => rej(req.error);
+  });
+  return _idb;
+}
+async function idbPut(key, blob) {
+  const db = await idb();
+  return new Promise((res, rej) => {
+    const tx = db.transaction(IDB_STORE, "readwrite");
+    tx.objectStore(IDB_STORE).put(blob, key);
+    tx.oncomplete = res; tx.onerror = () => rej(tx.error);
+  });
+}
+async function idbGet(key) {
+  const db = await idb();
+  return new Promise((res, rej) => {
+    const tx = db.transaction(IDB_STORE, "readonly");
+    const r = tx.objectStore(IDB_STORE).get(key);
+    r.onsuccess = () => res(r.result || null); r.onerror = () => rej(r.error);
+  });
+}
+async function idbDel(key) {
+  const db = await idb();
+  return new Promise((res) => {
+    const tx = db.transaction(IDB_STORE, "readwrite");
+    tx.objectStore(IDB_STORE).delete(key);
+    tx.oncomplete = res; tx.onerror = res;
+  });
+}
+
+/* ---------------- image compression (canvas) ---------------- */
+/* Shrinks oversized photos before storing — keeps localStorage/IDB, the folder,
+   and the git repo lean. Vector/animated formats pass through untouched. */
+async function compressImage(file, maxDim = 1920, quality = 0.82) {
+  if (!/^image\/(jpeg|png|webp)$/.test(file.type)) return file;   // leave gif/svg alone
+  try {
+    const bmp = await createImageBitmap(file);
+    const scale = Math.min(1, maxDim / Math.max(bmp.width, bmp.height));
+    if (scale === 1 && file.size < 400 * 1024) { bmp.close && bmp.close(); return file; } // already small
+    const w = Math.round(bmp.width * scale), h = Math.round(bmp.height * scale);
+    const canvas = document.createElement("canvas");
+    canvas.width = w; canvas.height = h;
+    canvas.getContext("2d").drawImage(bmp, 0, 0, w, h);
+    bmp.close && bmp.close();
+    const outType = file.type === "image/png" ? "image/png" : "image/jpeg";
+    const blob = await new Promise(r => canvas.toBlob(r, outType, quality));
+    if (blob && blob.size < file.size) {                            // only if it actually helped
+      blob.name = file.name.replace(/\.(png|webp)$/i, outType === "image/jpeg" ? ".jpg" : ".png");
+      return blob;
+    }
+    return file;
+  } catch (e) { return file; }
+}
+
+/* ---------------- object-URL cache (fixes the leak) ---------------- */
+const urlCache = new Map();   // key -> objectURL
+function cacheKey(im) { return im.path || im.idbKey || null; }
+function revokeImageUrl(im) {
+  const k = cacheKey(im);
+  if (k && urlCache.has(k)) { URL.revokeObjectURL(urlCache.get(k)); urlCache.delete(k); }
 }
 
 /* ---------------- markdown <-> file ---------------- */
@@ -574,43 +670,68 @@ function setFolderState(name) {
   else { el.classList.remove("on"); $("#folderLabel").textContent = "Not connected"; }
 }
 
-async function importFromFolder() {
+async function importFromFolder(opts = {}) {
   if (!dirHandle) return;
-  const found = [];
+  // collect handles, then read all files in parallel (fast even with hundreds of files)
+  const handles = [];
   for await (const [name, handle] of dirHandle.entries()) {
-    if (handle.kind === "file" && name.endsWith(".md") && name.toLowerCase() !== "readme.md") {
-      try {
-        const file = await handle.getFile();
-        const text = await file.text();
-        const a = parseFrontmatter(text, uid());
-        a._file = name;
-        found.push(a);
-      } catch (e) {}
-    }
+    if (handle.kind === "file" && name.endsWith(".md") && name.toLowerCase() !== "readme.md") handles.push([name, handle]);
   }
-  // merge: folder is source of truth for files it has (match by id, else by filename)
+  const found = (await Promise.all(handles.map(async ([name, handle]) => {
+    try {
+      const file = await handle.getFile();
+      const a = parseFrontmatter(await file.text(), uid());
+      a._file = name;
+      a._mtime = file.lastModified;
+      return a;
+    } catch (e) { return null; }
+  }))).filter(Boolean);
+
+  // merge: folder is source of truth, EXCEPT don't silently wipe unsaved in-app edits
   const byId = new Map(state.articles.map(a => [a.id, a]));
+  let skipped = 0, loaded = 0;
   for (const fa of found) {
-    if (byId.has(fa.id)) {
-      Object.assign(byId.get(fa.id), fa);
+    const local = byId.get(fa.id);
+    if (local) {
+      if (local._dirty && !opts.force) { skipped++; continue; }   // protect your unsaved work
+      Object.assign(local, fa);
+      local._dirty = false; local._conflict = false;
+      loaded++;
     } else {
       state.articles.push(fa);
+      loaded++;
     }
   }
   saveLocal();
   renderAll();
-  if (found.length) toast(`Loaded ${found.length} article${found.length>1?"s":""} from folder.`, "good");
+  if (currentId) openEditor();
+  if (loaded) toast(`Loaded ${loaded} article${loaded!==1?"s":""} from folder.`, "good");
+  if (skipped) toast(`Kept unsaved edits on ${skipped} article${skipped!==1?"s":""} (Force-reload to override).`, "bad");
 }
 
-async function writeArticleFile(a) {
+async function writeArticleFile(a, { force = false } = {}) {
   if (!dirHandle) return false;
   const fname = a._file || (slugify(a.title) + ".md");
   a._file = fname;
   try {
     const fh = await dirHandle.getFileHandle(fname, { create: true });
+    // Conflict guard: did something (Claude Code) edit this file since we last synced?
+    if (!force && a._mtime) {
+      try {
+        const onDisk = await fh.getFile();
+        if (onDisk.lastModified > a._mtime + 500) {
+          a._conflict = true;
+          renderConflict();
+          return "conflict";   // keep our edits in memory + localStorage, don't clobber
+        }
+      } catch (e) {}
+    }
     const w = await fh.createWritable();
     await w.write(toFrontmatter(a));
     await w.close();
+    const written = await fh.getFile();
+    a._mtime = written.lastModified;   // baseline for the next conflict check
+    a._conflict = false;
     return true;
   } catch (e) { toast("Save to folder failed: " + e.message, "bad"); return false; }
 }
@@ -620,29 +741,35 @@ async function deleteArticleFile(a) {
   try { await dirHandle.removeEntry(a._file); } catch (e) {}
 }
 
-async function writeImageFile(slug, file) {
+async function writeImageFile(slug, blob, name) {
   if (!imagesDirHandle) return null;
-  const safe = slug + "-" + Date.now().toString(36) + "-" + file.name.replace(/[^\w.\-]/g, "_");
+  const safe = slug + "-" + Date.now().toString(36) + "-" + (name || "image").replace(/[^\w.\-]/g, "_");
   try {
     const fh = await imagesDirHandle.getFileHandle(safe, { create: true });
     const w = await fh.createWritable();
-    await w.write(file);
+    await w.write(blob);
     await w.close();
     return "images/" + safe;
   } catch (e) { toast("Image save failed: " + e.message, "bad"); return null; }
 }
 
 async function resolveImageSrc(im) {
-  if (im.dataUrl) return im.dataUrl;
+  if (im.dataUrl) return im.dataUrl;                 // legacy inline images
+  const key = cacheKey(im);
+  if (key && urlCache.has(key)) return urlCache.get(key);   // reuse — no leak
+  let blob = null;
   if (im.path && imagesDirHandle) {
     try {
-      const fname = im.path.split("/").pop();
-      const fh = await imagesDirHandle.getFileHandle(fname);
-      const file = await fh.getFile();
-      return URL.createObjectURL(file);
+      const fh = await imagesDirHandle.getFileHandle(im.path.split("/").pop());
+      blob = await fh.getFile();
     } catch (e) { return null; }
+  } else if (im.idbKey) {
+    blob = await idbGet(im.idbKey);
   }
-  return null;
+  if (!blob) return null;
+  const url = URL.createObjectURL(blob);
+  if (key) urlCache.set(key, url);
+  return url;
 }
 
 /* ---------------- CRUD ---------------- */
@@ -681,19 +808,58 @@ function markSaved(saved) {
 }
 
 function scheduleSave() {
+  const a = current();
+  if (a) a._dirty = true;
   markSaved(false);
   clearTimeout(saveTimer);
-  saveTimer = setTimeout(commitSave, 700);
+  saveTimer = setTimeout(commitSave, 900);
 }
 
-async function commitSave() {
+async function commitSave(opts = {}) {
   const a = current();
   if (!a) return;
   a.updated = nowISO();
-  saveLocal();
-  if (dirHandle) await writeArticleFile(a);
+  saveLocal();              // text is always safe locally first
+  if (dirHandle) {
+    const r = await writeArticleFile(a, opts);
+    if (r === "conflict") { markSaved(true); return; }   // banner shown; edits kept locally
+    if (r === true) a._dirty = false;
+  } else {
+    a._dirty = false;
+  }
   markSaved(true);
-  renderLanes();   // reflect title/status changes in sidebar
+  renderLanes();
+}
+
+/* ---------------- conflict banner ---------------- */
+function renderConflict() {
+  const a = current();
+  const bar = $("#conflictBar");
+  if (!bar) return;
+  if (a && a._conflict) {
+    bar.style.display = "flex";
+  } else {
+    bar.style.display = "none";
+  }
+}
+async function resolveConflict(mode) {
+  const a = current(); if (!a) return;
+  if (mode === "mine") {
+    await writeArticleFile(a, { force: true });
+    a._dirty = false;
+    toast("Saved your version to the folder.", "good");
+  } else {  // theirs
+    try {
+      const fh = await dirHandle.getFileHandle(a._file);
+      const file = await fh.getFile();
+      const fresh = parseFrontmatter(await file.text(), a.id);
+      Object.assign(a, fresh, { _file: a._file, _mtime: file.lastModified, _conflict: false, _dirty: false });
+      toast("Loaded the file's version (Claude's edits).", "good");
+    } catch (e) { toast("Couldn't read file: " + e.message, "bad"); }
+  }
+  a._conflict = false;
+  renderConflict();
+  openEditor();
 }
 
 /* ---------------- rendering ---------------- */
@@ -758,6 +924,7 @@ function openEditor() {
   markSaved(true);
   updateCounter();
   renderInspector();
+  renderConflict();
   applyView();
   if (view !== "write") renderPreview();
 }
@@ -883,7 +1050,12 @@ async function renderImages(body, a) {
         <button data-act="rm" title="Remove">✕</button>
       </div>`;
     cell.querySelector('[data-act="md"]').onclick = () => insertImageMarkdown(im);
-    cell.querySelector('[data-act="rm"]').onclick = () => { a.images = a.images.filter(x => x !== im); scheduleSave(); renderInspector(); };
+    cell.querySelector('[data-act="rm"]').onclick = () => {
+      revokeImageUrl(im);
+      if (im.idbKey) idbDel(im.idbKey);
+      a.images = a.images.filter(x => x !== im);
+      scheduleSave(); renderInspector();
+    };
     grid.appendChild(cell);
   }
 }
@@ -899,23 +1071,33 @@ function wireImages() {
 async function handleFiles(files) {
   const a = current(); if (!a) return;
   const slug = slugify(a.title);
+  let savedBytes = 0;
   for (const file of files) {
     if (!file.type.startsWith("image/")) continue;
+    const blob = await compressImage(file);          // resize/compress oversized photos
+    savedBytes += Math.max(0, file.size - blob.size);
+    const name = blob.name || file.name;
     if (dirHandle) {
-      const path = await writeImageFile(slug, file);
-      if (path) a.images.push({ name: file.name, path });
+      const path = await writeImageFile(slug, blob, name);
+      if (path) a.images.push({ name, path });
     } else {
-      const dataUrl = await fileToDataUrl(file);
-      a.images.push({ name: file.name, dataUrl });
+      const idbKey = "img_" + uid();                 // blob → IndexedDB (not base64 in localStorage)
+      try { await idbPut(idbKey, blob); a.images.push({ name, idbKey }); }
+      catch (e) { toast("Couldn't store image: " + e.message, "bad"); }
     }
   }
   scheduleSave();
   renderInspector();
-  toast("Image added.");
+  toast(savedBytes > 50 * 1024 ? `Image added (saved ${(savedBytes/1024/1024).toFixed(1)}MB via compression).` : "Image added.", "good");
 }
-function insertImageMarkdown(im) {
+async function insertImageMarkdown(im) {
   const a = current(); if (!a) return;
-  const ref = im.path || im.dataUrl;
+  let ref = im.path || im.dataUrl;
+  if (!ref && im.idbKey) {                       // browser-only: inline as data URL so it's portable
+    const blob = await idbGet(im.idbKey);
+    if (blob) ref = await fileToDataUrl(blob);
+  }
+  if (!ref) return toast("Image not available.", "bad");
   const ta = $("#mdInput");
   const snippet = `\n![${im.name}](${ref})\n`;
   const pos = ta.selectionStart || ta.value.length;
@@ -1029,7 +1211,16 @@ function closeMenu() { $("#menuModal").classList.remove("show"); }
 
 /* ---------------- events ---------------- */
 $("#connectBtn").onclick = connectFolder;
-$("#reloadBtn").onclick = () => dirHandle ? importFromFolder() : toast("Connect a folder first.", "bad");
+$("#reloadBtn").onclick = () => {
+  if (!dirHandle) return toast("Connect a folder first.", "bad");
+  const dirty = state.articles.some(a => a._dirty);
+  if (dirty && !confirm("Some articles have unsaved edits. Reload from folder anyway?\n\nOK = force reload (your unsaved edits are discarded)\nCancel = keep your edits")) {
+    return importFromFolder({ force: false });
+  }
+  importFromFolder({ force: dirty });
+};
+$("#keepMine").onclick = () => resolveConflict("mine");
+$("#loadTheirs").onclick = () => resolveConflict("theirs");
 $("#newBtn").onclick = newArticle;
 $("#menuBtn").onclick = () => $("#menuModal").classList.add("show");
 $("#closeMenu").onclick = closeMenu;

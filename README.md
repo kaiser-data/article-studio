@@ -49,8 +49,13 @@ The app has no backend. It and Claude Code edit the **same files**:
 - **Markdown editor** with Write / Split / Preview and live word + character counts.
 - **Per-platform playbooks** — length targets, hook rules, hashtag and formatting
   tips for LinkedIn, Medium, Toastmasters, Luma, and generic blogs.
-- **Image upload** (drag & drop) saved into `articles/images/` and referenced by
-  relative path, so Medium/Luma uploads and Claude both see the same files.
+- **Image upload** (drag & drop) — auto-compressed/resized on upload (≤1920px),
+  saved into `articles/images/` and referenced by relative path, so Medium/Luma
+  uploads and Claude both see the same files. In browser-only mode, image blobs go
+  to **IndexedDB** (not base64 in localStorage) to avoid the ~5MB quota wall.
+- **Conflict-safe sync** — if Claude Code edits a file you have open, the app
+  detects it and shows a banner (*Save my version* / *Load file*) instead of
+  silently overwriting. **↻ Reload** warns before discarding unsaved in-app edits.
 - **Backup / restore** via JSON, plus "Save all to folder".
 
 ## Folders
