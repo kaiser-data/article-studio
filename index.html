@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>Article Studio · Claude Code</title>
+<title>Article Studio · Agents</title>
 <style>
   :root {
     --bg:        #0e1014;
@@ -221,6 +221,90 @@
   .tags-row { display: flex; flex-wrap: wrap; gap: 5px; }
   .tag { font-size: 11px; background: var(--panel-2); border: 1px solid var(--line-2); border-radius: 20px; padding: 3px 9px; color: var(--text-dim); }
 
+  /* people directory */
+  .people-panel #peopleSearch { margin: 4px 0 10px; }
+  .people-list { display: flex; flex-direction: column; gap: 6px; }
+  .person { display: flex; align-items: flex-start; gap: 8px; background: var(--panel); border: 1px solid var(--line); border-radius: 9px; padding: 8px 10px; }
+  .person-main { flex: 1; min-width: 0; }
+  .person-name { font-size: 13px; font-weight: 600; display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+  .person-handle { font-size: 11px; color: var(--accent-2); margin-top: 2px; word-break: break-all; }
+  .person-note { font-size: 11px; color: var(--text-dim2); margin-top: 3px; line-height: 1.4; }
+  .person-acts { display: flex; gap: 3px; flex: 0 0 auto; }
+  .person-form input, .person-form select { width: 100%; background: var(--panel); border: 1px solid var(--line); color: var(--text); border-radius: 7px; padding: 7px 9px; font-size: 13px; }
+  .person-form input:focus, .person-form select:focus { outline: none; border-color: var(--accent); }
+  .img-people-chips { display: flex; flex-wrap: wrap; gap: 4px; padding: 4px 6px 0; }
+  .img-people-chips .tag { font-size: 10px; padding: 2px 6px; }
+  .img-tag-box { padding: 4px 6px 6px; }
+  .img-tag-box summary { font-size: 11px; color: var(--text-dim); cursor: pointer; list-style: none; }
+  .img-tag-box summary::-webkit-details-marker { display: none; }
+  .people-check { display: flex; flex-direction: column; gap: 3px; margin-top: 6px; max-height: 130px; overflow-y: auto; }
+  .people-check label { font-size: 11.5px; color: var(--text-dim); display: flex; align-items: center; gap: 6px; cursor: pointer; }
+  .img-tag-empty { font-size: 10px; color: var(--text-dim2); padding: 4px 6px 6px; }
+
+  /* schedule chips on cards */
+  .sch-chip { font-size: 10px; font-weight: 600; padding: 1px 6px; border-radius: 20px; border: 1px solid var(--line-2); }
+  .sch-chip.sch-up { color: var(--idea); border-color: var(--idea); }
+  .sch-chip.sch-today { color: #221200; background: var(--accent); border-color: transparent; }
+  .sch-chip.sch-over { color: var(--danger); border-color: var(--danger); }
+  .sch-chip.sch-done { color: var(--posted); border-color: var(--line-2); }
+
+  /* calendar modal */
+  .cal-modal { width: 900px; max-width: 96vw; }
+  .cal-head { display: flex; align-items: center; gap: 14px; margin-bottom: 14px; }
+  .cal-nav { display: flex; align-items: center; gap: 8px; flex: 1; }
+  .cal-month-label { font-weight: 600; min-width: 140px; text-align: center; }
+  .cal-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px; }
+  .cal-dow { font-size: 10px; text-transform: uppercase; letter-spacing: .5px; color: var(--text-dim2); text-align: center; padding-bottom: 2px; font-weight: 700; }
+  .cal-cell { min-height: 78px; background: var(--bg-2); border: 1px solid var(--line); border-radius: 7px; padding: 4px; overflow: hidden; }
+  .cal-cell.empty { background: transparent; border-color: transparent; }
+  .cal-cell.today { border-color: var(--accent); box-shadow: inset 0 0 0 1px var(--accent); }
+  .cal-daynum { font-size: 11px; color: var(--text-dim); font-weight: 600; margin-bottom: 3px; }
+  .cal-items { display: flex; flex-direction: column; gap: 2px; }
+  .cal-item { display: flex; align-items: center; gap: 4px; font-size: 10.5px; background: var(--panel); border: 1px solid var(--line); border-radius: 5px; padding: 2px 5px; cursor: pointer; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .cal-item:hover { border-color: var(--accent); }
+  .cal-item.over { border-color: var(--danger); }
+  .cal-item.done { opacity: .55; }
+  .cal-dot { width: 7px; height: 7px; border-radius: 50%; flex: 0 0 auto; }
+  .cal-upcoming { margin-top: 16px; max-height: 190px; overflow-y: auto; }
+  .cal-up-head { font-size: 11px; text-transform: uppercase; letter-spacing: .5px; color: var(--text-dim2); font-weight: 700; margin: 10px 0 6px; }
+  .cal-up-row { display: flex; align-items: center; gap: 8px; padding: 6px 8px; border-radius: 7px; cursor: pointer; font-size: 12.5px; }
+  .cal-up-row:hover { background: var(--panel); }
+  .cal-up-date { color: var(--text-dim); flex: 0 0 96px; }
+  .cal-up-title { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+  /* codex tab */
+  .codex-panel { display: flex; flex-direction: column; gap: 12px; }
+  .codex-presets { display: grid; grid-template-columns: 1fr 1fr; gap: 7px; }
+  .codex-preset {
+    background: var(--panel); border: 1px solid var(--line); color: var(--text-dim);
+    border-radius: 7px; padding: 8px 7px; font-size: 12px; font-weight: 600;
+  }
+  .codex-preset:hover, .codex-preset.active { border-color: var(--accent); color: var(--text); background: var(--panel-2); }
+  .prompt-box {
+    width: 100%; min-height: 220px; resize: vertical; background: var(--panel);
+    border: 1px solid var(--line); border-radius: 8px; color: var(--text);
+    padding: 10px; font: 12px/1.55 var(--mono);
+  }
+  .prompt-box:focus { outline: none; border-color: var(--accent); }
+  .codex-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+  .codex-note { font-size: 12px; color: var(--text-dim2); line-height: 1.5; }
+  .codex-status {
+    display: flex; align-items: center; gap: 8px; font-size: 12px; color: var(--text-dim);
+    background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 8px 9px;
+  }
+  .codex-status .led { width: 8px; height: 8px; border-radius: 50%; background: var(--text-dim2); flex: 0 0 auto; }
+  .codex-status.good .led { background: var(--ready); box-shadow: 0 0 8px var(--ready); }
+  .codex-status.warn .led { background: var(--draft); box-shadow: 0 0 8px var(--draft); }
+  .codex-result {
+    background: var(--panel); border: 1px solid var(--line); border-radius: 8px;
+    padding: 9px; color: var(--text-dim); font-size: 12px; line-height: 1.5;
+  }
+  .codex-result b { color: var(--text); }
+  .codex-result pre {
+    max-height: 180px; overflow: auto; white-space: pre-wrap; margin: 8px 0 0;
+    color: var(--text); font: 12px/1.5 var(--mono);
+  }
+
   .save-state { font-size: 11px; color: var(--text-dim2); margin-left: 4px; }
   .save-state.saved { color: var(--ready); }
 
@@ -258,12 +342,13 @@
       <div>Article Studio <small>· write · plan · publish</small></div>
     </div>
     <div class="spacer"></div>
-    <div class="folder-state" id="folderState" title="The bridge to Claude Code">
+    <div class="folder-state" id="folderState" title="The bridge to your coding agent">
       <span class="led"></span>
       <span id="folderLabel">Not connected</span>
     </div>
     <button class="btn ghost sm" id="reloadBtn" title="Re-read articles from the folder">↻ Reload</button>
     <button class="btn" id="connectBtn">🔗 Connect folder</button>
+    <button class="btn" id="calendarBtn" title="Content calendar">📅 Calendar</button>
     <button class="btn primary" id="newBtn">+ New article</button>
     <button class="btn ghost sm" id="menuBtn" title="Backup / import / help">⋯</button>
   </header>
@@ -286,7 +371,7 @@
         <div>
           <div style="font-size:15px;color:var(--text-dim);margin-bottom:6px;">No article open</div>
           Create one with <b>+ New article</b>, or pick a card on the left.<br/>
-          Connect your <code>articles/</code> folder so Claude Code can read &amp; edit the same files.
+          Connect your <code>articles/</code> folder so Codex or Claude Code can read &amp; edit the same files.
         </div>
       </div>
 
@@ -321,7 +406,7 @@
         </div>
 
         <div class="conflict-bar" id="conflictBar" style="display:none;">
-          <span>⚠ This file changed outside the app (Claude Code?). Your edits are kept here, not yet saved to disk.</span>
+          <span>⚠ This file changed outside the app (agent edit?). Your edits are kept here, not yet saved to disk.</span>
           <span style="flex:1"></span>
           <button class="btn sm" id="keepMine">Save my version</button>
           <button class="btn sm ghost" id="loadTheirs">Load file</button>
@@ -340,6 +425,8 @@
         <button data-tab="tips" class="active">Platform tips</button>
         <button data-tab="images">Images</button>
         <button data-tab="meta">Meta</button>
+        <button data-tab="people">People</button>
+        <button data-tab="codex">Agents</button>
       </div>
       <div class="insp-body" id="inspBody"></div>
     </aside>
@@ -352,16 +439,34 @@
 <div class="modal-bg" id="menuModal">
   <div class="modal">
     <h3>Studio menu</h3>
-    <p>Back up your work, or learn how the Claude Code bridge works.</p>
+    <p>Back up your work, or learn how the agent bridge works.</p>
     <div style="display:flex; flex-direction:column; gap:8px;">
       <button class="btn" id="exportJsonBtn">⬇ Export backup (.json)</button>
       <button class="btn" id="importJsonBtn">⬆ Import backup (.json)</button>
       <button class="btn" id="syncAllBtn">💾 Save all to folder (.md)</button>
-      <button class="btn ghost" id="helpBtn">？ How the Claude Code bridge works</button>
+      <button class="btn ghost" id="helpBtn">？ How the agent bridge works</button>
     </div>
     <div class="row">
       <button class="btn ghost" id="closeMenu">Close</button>
     </div>
+  </div>
+</div>
+
+<!-- calendar modal -->
+<div class="modal-bg" id="calModal">
+  <div class="modal cal-modal">
+    <div class="cal-head">
+      <h3 style="margin:0">📅 Content calendar</h3>
+      <div class="cal-nav">
+        <button class="btn ghost sm" id="calPrev">‹</button>
+        <span id="calMonthLabel" class="cal-month-label"></span>
+        <button class="btn ghost sm" id="calNext">›</button>
+        <button class="btn ghost sm" id="calToday">Today</button>
+      </div>
+      <button class="btn ghost sm" id="calClose">✕</button>
+    </div>
+    <div class="cal-body" id="calBody"></div>
+    <div class="cal-upcoming" id="calUpcoming"></div>
   </div>
 </div>
 
@@ -370,7 +475,7 @@
 <script>
 /* ============================================================
    Article Studio — single-file content desk
-   Bridge to Claude Code = Markdown files in a chosen folder
+   Bridge to coding agents = Markdown files in a chosen folder
    ============================================================ */
 
 const PLATFORMS = {
@@ -480,12 +585,18 @@ const STATUSES = [
 ];
 
 /* ---------------- state ---------------- */
-let state = { articles: [] };
+let state = { articles: [], people: [] };
 let currentId = null;
 let dirHandle = null;          // FileSystemDirectoryHandle (folder bridge)
 let imagesDirHandle = null;
+let taskNotesDirHandle = null;
 let view = "write";
 let inspTab = "tips";
+let agentTarget = "codex";
+let codexTask = "polish";
+let backendStatus = { checked: false, ok: false, codex: false, claude: false, error: "" };
+let aiAssistBusy = false;
+let aiAssistResult = null;
 let filterPlatform = "all";
 let searchText = "";
 let saveTimer = null;
@@ -520,6 +631,7 @@ function loadLocal() {
     if (raw) state = JSON.parse(raw);
   } catch (e) {}
   if (!state.articles) state.articles = [];
+  if (!state.people) state.people = [];
 }
 
 /* ---------------- IndexedDB (image blobs, browser-only fallback) ---------------- */
@@ -603,7 +715,9 @@ function toFrontmatter(a) {
     `status: ${a.status}`,
     `tags: [${(a.tags || []).map(t => escYaml(t)).join(", ")}]`,
     `summary: ${escYaml(a.summary || "")}`,
+    `publishDate: ${a.publishDate || ""}`,
     `images: [${(a.images || []).map(im => escYaml(im.path || im.name)).join(", ")}]`,
+    `imageTags: [${(a.images || []).filter(im => im.people && im.people.length).map(im => escYaml(`${im.path || im.name} :: ${im.people.join("; ")}`)).join(", ")}]`,
     `created: ${a.created}`,
     `updated: ${a.updated}`,
     `id: ${a.id}`,
@@ -619,7 +733,7 @@ function escYaml(s) {
 }
 function parseFrontmatter(text, fallbackId) {
   const m = text.match(/^---\n([\s\S]*?)\n---\n?/);
-  const a = { id: fallbackId, title: "Untitled", platform: "linkedin", status: "drafting", tags: [], summary: "", images: [], created: nowISO(), updated: nowISO(), body: text };
+  const a = { id: fallbackId, title: "Untitled", platform: "linkedin", status: "drafting", tags: [], summary: "", publishDate: "", images: [], created: nowISO(), updated: nowISO(), body: text };
   if (!m) { a.body = text; return a; }
   a.body = text.slice(m[0].length);
   const lines = m[1].split("\n");
@@ -628,14 +742,27 @@ function parseFrontmatter(text, fallbackId) {
     if (idx < 0) continue;
     const key = line.slice(0, idx).trim();
     let val = line.slice(idx + 1).trim();
-    if (key === "tags" || key === "images") {
+    if (key === "tags" || key === "images" || key === "imageTags") {
       val = val.replace(/^\[|\]$/g, "").trim();
       const arr = val ? val.split(",").map(s => unesc(s.trim())).filter(Boolean) : [];
       if (key === "tags") a.tags = arr;
-      else a.images = arr.map(p => ({ name: p.split("/").pop(), path: p }));
-    } else if (a.hasOwnProperty(key) || ["title","platform","status","summary","created","updated","id"].includes(key)) {
+      else if (key === "images") a.images = arr.map(p => ({ name: p.split("/").pop(), path: p }));
+      else a._imageTags = arr;   // "path :: Name; Name" entries, mapped onto images below
+    } else if (a.hasOwnProperty(key) || ["title","platform","status","summary","publishDate","created","updated","id"].includes(key)) {
       a[key] = unesc(val);
     }
+  }
+  // attach per-photo people tags back onto their image objects
+  if (a._imageTags) {
+    for (const entry of a._imageTags) {
+      const sep = entry.indexOf(" :: ");
+      if (sep < 0) continue;
+      const ref = entry.slice(0, sep).trim();
+      const names = entry.slice(sep + 4).split(";").map(s => s.trim()).filter(Boolean);
+      const img = a.images.find(im => (im.path || im.name) === ref);
+      if (img) img.people = names;
+    }
+    delete a._imageTags;
   }
   if (!PLATFORMS[a.platform]) a.platform = "blog";
   return a;
@@ -658,7 +785,7 @@ async function connectFolder() {
     imagesDirHandle = await dirHandle.getDirectoryHandle("images", { create: true });
     setFolderState(dirHandle.name);
     await importFromFolder();
-    toast("Folder connected. Claude Code can now read & write these files.", "good");
+    toast("Folder connected. Agents can now read & write these files.", "good");
   } catch (e) {
     if (e.name !== "AbortError") toast("Couldn't connect folder: " + e.message, "bad");
   }
@@ -670,8 +797,29 @@ function setFolderState(name) {
   else { el.classList.remove("on"); $("#folderLabel").textContent = "Not connected"; }
 }
 
+/* people directory mirrored to articles/people.json so agents can read who you tag */
+async function writePeopleFile() {
+  if (!dirHandle) return;
+  try {
+    const fh = await dirHandle.getFileHandle("people.json", { create: true });
+    const w = await fh.createWritable();
+    await w.write(JSON.stringify(state.people || [], null, 2));
+    await w.close();
+  } catch (e) { /* non-fatal */ }
+}
+async function loadPeopleFile() {
+  if (!dirHandle) return;
+  try {
+    const fh = await dirHandle.getFileHandle("people.json");
+    const arr = JSON.parse(await (await fh.getFile()).text());
+    if (Array.isArray(arr)) state.people = arr;
+  } catch (e) { /* no file yet */ }
+}
+function savePeople() { saveLocal(); writePeopleFile(); }
+
 async function importFromFolder(opts = {}) {
   if (!dirHandle) return;
+  await loadPeopleFile();
   // collect handles, then read all files in parallel (fast even with hundreds of files)
   const handles = [];
   for await (const [name, handle] of dirHandle.entries()) {
@@ -715,7 +863,7 @@ async function writeArticleFile(a, { force = false } = {}) {
   a._file = fname;
   try {
     const fh = await dirHandle.getFileHandle(fname, { create: true });
-    // Conflict guard: did something (Claude Code) edit this file since we last synced?
+    // Conflict guard: did something outside the app edit this file since we last synced?
     if (!force && a._mtime) {
       try {
         const onDisk = await fh.getFile();
@@ -776,7 +924,7 @@ async function resolveImageSrc(im) {
 function newArticle() {
   const a = {
     id: uid(), title: "", platform: filterPlatform !== "all" ? filterPlatform : "linkedin",
-    status: "idea", tags: [], summary: "", images: [], body: "",
+    status: "idea", tags: [], summary: "", publishDate: "", images: [], body: "",
     created: nowISO(), updated: nowISO()
   };
   state.articles.unshift(a);
@@ -854,7 +1002,7 @@ async function resolveConflict(mode) {
       const file = await fh.getFile();
       const fresh = parseFrontmatter(await file.text(), a.id);
       Object.assign(a, fresh, { _file: a._file, _mtime: file.lastModified, _conflict: false, _dirty: false });
-      toast("Loaded the file's version (Claude's edits).", "good");
+      toast("Loaded the file's version.", "good");
     } catch (e) { toast("Couldn't read file: " + e.message, "bad"); }
   }
   a._conflict = false;
@@ -893,12 +1041,14 @@ function renderLanes() {
     html += `<div class="lane-head"><span class="swatch" style="background:${st.color}"></span>${st.label}<span class="count">${inLane.length}</span></div>`;
     for (const a of inLane) {
       const p = PLATFORMS[a.platform] || PLATFORMS.blog;
+      const sch = scheduleChip(a);
       html += `<div class="card ${a.id===currentId?"sel":""}" data-id="${a.id}">
         <div class="c-title">${esc(a.title) || '<span style="color:var(--text-dim2)">Untitled</span>'}</div>
         <div class="c-meta">
           <span class="pill" style="border-color:${p.color};color:${p.color}">${p.label}</span>
           <span>${wordCount(a.body)} words</span>
           ${a._file ? '<span title="synced to folder">💾</span>' : ''}
+          ${sch ? `<span class="sch-chip ${sch.cls}">${sch.label}</span>` : ''}
         </div>
       </div>`;
     }
@@ -975,9 +1125,13 @@ function renderInspector() {
   const a = current();
   if (inspTab === "tips") body.innerHTML = renderTips(a);
   else if (inspTab === "images") renderImages(body, a);
-  else body.innerHTML = renderMeta(a);
+  else if (inspTab === "meta") body.innerHTML = renderMeta(a);
+  else if (inspTab === "people") body.innerHTML = renderPeople(a);
+  else body.innerHTML = renderCodex(a);
   if (inspTab === "meta") wireMeta();
   if (inspTab === "images") wireImages();
+  if (inspTab === "people") wirePeople();
+  if (inspTab === "codex") wireCodex();
 }
 
 function renderTips(a) {
@@ -1004,6 +1158,14 @@ function renderMeta(a) {
       <textarea id="metaSummary" rows="3" placeholder="One-line teaser used for SEO, Luma blurb, LinkedIn hook…">${esc(a.summary||"")}</textarea>
     </div>
     <div class="meta-field">
+      <label>Publish date <span style="text-transform:none;color:var(--text-dim2)">(when to post)</span></label>
+      <div style="display:flex;gap:6px">
+        <input id="metaPublishDate" type="date" value="${esc(a.publishDate||"")}" style="flex:1" />
+        <button class="btn ghost sm" id="metaDateToday" title="Set to today">Today</button>
+        <button class="btn ghost sm" id="metaDateClear" title="Clear">✕</button>
+      </div>
+    </div>
+    <div class="meta-field">
       <label>Tags <span style="text-transform:none;color:var(--text-dim2)">(comma separated)</span></label>
       <input id="metaTags" value="${esc((a.tags||[]).join(", "))}" placeholder="toastmasters, leadership, devops" />
       <div class="tags-row" style="margin-top:8px">${(a.tags||[]).map(t=>`<span class="tag">${esc(t)}</span>`).join("")}</div>
@@ -1025,6 +1187,347 @@ function wireMeta() {
     a.tags = t.value.split(",").map(x => x.trim()).filter(Boolean);
     scheduleSave(); renderInspector();
   };
+  const pd = $("#metaPublishDate");
+  if (pd) pd.onchange = () => { a.publishDate = pd.value; scheduleSave(); renderLanes(); };
+  const td = $("#metaDateToday");
+  if (td) td.onclick = () => { a.publishDate = todayKey(); scheduleSave(); renderInspector(); renderLanes(); };
+  const dc = $("#metaDateClear");
+  if (dc) dc.onclick = () => { a.publishDate = ""; scheduleSave(); renderInspector(); renderLanes(); };
+}
+
+/* ---------------- People directory (mentions + photo tags) ---------------- */
+let peopleSearch = "";
+function visiblePeople() {
+  const q = peopleSearch.toLowerCase();
+  return (state.people || []).filter(p =>
+    !q || (p.name + " " + (p.handle||"") + " " + (p.note||"")).toLowerCase().includes(q)
+  ).sort((a, b) => (a.name||"").localeCompare(b.name||""));
+}
+function renderPeople(a) {
+  const people = visiblePeople();
+  const platOpts = Object.entries(PLATFORMS).map(([k,v]) => `<option value="${k}">${v.label}</option>`).join("");
+  const rows = people.map(p => {
+    const pf = PLATFORMS[p.platform] || PLATFORMS.blog;
+    return `<div class="person" data-pid="${p.id}">
+      <div class="person-main">
+        <div class="person-name">${esc(p.name) || "Unnamed"} <span class="pill" style="border-color:${pf.color};color:${pf.color}">${pf.label}</span></div>
+        ${p.handle ? `<div class="person-handle">${esc(p.handle)}</div>` : ""}
+        ${p.note ? `<div class="person-note">${esc(p.note)}</div>` : ""}
+      </div>
+      <div class="person-acts">
+        <button class="btn sm" data-act="mention" ${a?"":"disabled"} title="Insert @mention into the draft">@</button>
+        <button class="btn ghost sm" data-act="copy" title="Copy handle/URL">⧉</button>
+        <button class="btn ghost sm" data-act="edit" title="Edit">✎</button>
+        <button class="btn ghost sm danger" data-act="del" title="Delete">✕</button>
+      </div>
+    </div>`;
+  }).join("");
+  return `
+    <div class="people-panel">
+      <div class="tip-platform"><span class="swatch" style="width:9px;height:9px;border-radius:3px;background:var(--accent)"></span>People to tag</div>
+      <input class="sb-search" id="peopleSearch" placeholder="Search people…" value="${esc(peopleSearch)}" />
+      <div class="people-list">${rows || '<div class="empty-hint">No people yet. Add someone below — they\'ll be reusable across every article and taggable on photos.</div>'}</div>
+      <div class="person-form">
+        <h4 style="margin:14px 0 6px;font-size:11px;text-transform:uppercase;letter-spacing:.5px;color:var(--text-dim2)">Add person</h4>
+        <input id="npName" placeholder="Name (e.g. Jane Doe)" />
+        <div style="display:flex;gap:6px;margin-top:6px">
+          <select id="npPlatform" style="flex:0 0 110px">${platOpts}</select>
+          <input id="npHandle" placeholder="@handle or profile URL" style="flex:1" />
+        </div>
+        <input id="npNote" placeholder="Note — why/when to tag (topics, role)" style="margin-top:6px" />
+        <button class="btn primary" id="npAdd" style="margin-top:8px;width:100%">+ Add person</button>
+      </div>
+      <div class="codex-note" style="margin-top:12px">Saved to <code>articles/people.json</code> when a folder is connected — so Codex/Claude can suggest who to @mention. Tag people on photos in the <b>Images</b> tab.</div>
+    </div>`;
+}
+function wirePeople() {
+  const search = $("#peopleSearch");
+  if (search) search.oninput = () => {
+    peopleSearch = search.value;
+    renderInspector();
+    const s = $("#peopleSearch");
+    if (s) { s.focus(); s.setSelectionRange(s.value.length, s.value.length); }
+  };
+  wirePersonRows();
+  const add = $("#npAdd");
+  if (add) add.onclick = () => {
+    const name = $("#npName").value.trim();
+    if (!name) return toast("Enter a name.", "bad");
+    state.people.push({ id: uid(), name, platform: $("#npPlatform").value, handle: $("#npHandle").value.trim(), note: $("#npNote").value.trim() });
+    savePeople();
+    renderInspector();
+    toast("Person added.", "good");
+  };
+}
+function wirePersonRows() {
+  $$(".person").forEach(row => {
+    const p = state.people.find(x => x.id === row.dataset.pid);
+    if (!p) return;
+    row.querySelectorAll("[data-act]").forEach(btn => btn.onclick = () => {
+      const act = btn.dataset.act;
+      if (act === "mention") insertMention(p);
+      else if (act === "copy") { navigator.clipboard.writeText(p.handle || p.name); toast("Copied.", "good"); }
+      else if (act === "edit") editPerson(p);
+      else if (act === "del") {
+        if (!confirm(`Delete ${p.name}?`)) return;
+        state.people = state.people.filter(x => x.id !== p.id);
+        savePeople(); renderInspector();
+      }
+    });
+  });
+}
+function editPerson(p) {
+  const name = prompt("Name:", p.name); if (name === null) return;
+  const handle = prompt("Handle / profile URL:", p.handle || "");
+  const note = prompt("Note:", p.note || "");
+  p.name = name.trim() || p.name;
+  if (handle !== null) p.handle = handle.trim();
+  if (note !== null) p.note = note.trim();
+  savePeople(); renderInspector();
+}
+function insertMention(p) {
+  const a = current(); if (!a) return toast("Open an article first.", "bad");
+  const ta = $("#mdInput");
+  const token = p.handle && p.handle.startsWith("@") ? p.handle : "@" + p.name;
+  const pos = ta.selectionStart != null ? ta.selectionStart : ta.value.length;
+  ta.value = ta.value.slice(0, pos) + token + " " + ta.value.slice(pos);
+  a.body = ta.value;
+  updateCounter();
+  if (view !== "write") renderPreview();
+  scheduleSave();
+  toast(`Inserted ${token}`, "good");
+}
+
+/* ---------------- Codex handoff ---------------- */
+const CODEX_TASKS = {
+  polish: {
+    label: "Polish draft",
+    ask: "Polish this article for clarity, flow, and platform fit. Keep the author's voice, preserve Markdown, and do not invent facts."
+  },
+  hook: {
+    label: "Improve hook",
+    ask: "Rewrite the opening hook and first section to make the article more compelling. Keep the rest of the draft mostly intact."
+  },
+  repurpose: {
+    label: "Repurpose",
+    ask: "Create a platform-ready variant of this article. Keep the core idea, adapt structure and tone for the selected platform, and update the metadata if needed."
+  },
+  factcheck: {
+    label: "Review risks",
+    ask: "Review this article for factual gaps, unsupported claims, unclear wording, and missing caveats. Prefer concrete edits over broad advice."
+  }
+};
+
+const AGENT_TARGETS = {
+  codex: { label: "Codex", taskDir: ".codex-tasks" },
+  claude: { label: "Claude Code", taskDir: ".claude-tasks" }
+};
+
+function renderCodex(a) {
+  if (!a) return `<div class="empty-hint">Open an article to create an agent task.</div>`;
+  const target = AGENT_TARGETS[agentTarget] || AGENT_TARGETS.codex;
+  const engineOk = agentTarget === "claude" ? backendStatus.claude : backendStatus.codex;
+  const backendClass = backendStatus.ok && engineOk ? "good" : backendStatus.ok ? "warn" : "";
+  const backendText = !backendStatus.checked
+    ? "Checking local backend..."
+    : backendStatus.ok && engineOk
+      ? `${target.label} backend ready`
+      : backendStatus.ok
+        ? `Backend running, ${target.label} CLI missing`
+        : "Backend not running";
+  const runDisabled = aiAssistBusy || !backendStatus.ok || !engineOk ? "disabled" : "";
+  const resultHtml = aiAssistResult ? `
+    <div class="codex-result">
+      <b>AI result ready</b>
+      <div>${esc(aiAssistResult.notes || "Review the draft before applying.")}</div>
+      <pre>${esc((aiAssistResult.body || "").slice(0, 900))}${(aiAssistResult.body || "").length > 900 ? "\n..." : ""}</pre>
+      <div class="codex-actions" style="margin-top:8px">
+        <button class="btn primary" id="applyAiAssist">Apply result</button>
+        <button class="btn ghost" id="discardAiAssist">Discard</button>
+      </div>
+    </div>` : "";
+  return `
+    <div class="codex-panel">
+      <div class="tip-platform"><span class="swatch" style="width:9px;height:9px;border-radius:3px;background:var(--accent)"></span>Agent handoff</div>
+      <div class="seg" id="agentTargetSeg">
+        ${Object.entries(AGENT_TARGETS).map(([key, item]) => `<button data-agent-target="${key}" class="${agentTarget===key?"active":""}">${item.label}</button>`).join("")}
+      </div>
+      <div class="codex-status ${backendClass}">
+        <span class="led"></span>
+        <span>${backendText}</span>
+        <span style="flex:1"></span>
+        <button class="btn ghost sm" id="checkBackend">Check</button>
+      </div>
+      <div class="codex-presets">
+        ${Object.entries(CODEX_TASKS).map(([key, task]) => `<button class="codex-preset ${codexTask===key?"active":""}" data-codex-task="${key}">${task.label}</button>`).join("")}
+      </div>
+      <textarea class="prompt-box" id="codexPrompt">${esc(buildCodexPrompt(a))}</textarea>
+      <div class="codex-actions">
+        <button class="btn primary" id="copyCodexPrompt">Copy prompt</button>
+        <button class="btn" id="saveCodexTask">Save task note</button>
+      </div>
+      <button class="btn primary" id="runAiAssist" ${runDisabled}>${aiAssistBusy ? `Running ${target.label}…` : `Run ${target.label}`}</button>
+      ${resultHtml}
+      <div class="codex-note">
+        ${backendStatus.ok ? `Run executes the local <b>${target.label}</b> CLI on this file. Task notes (handoff) go to <code>${target.taskDir}/</code>.` : "Start the local backend with <code>serve.command</code>. Browsers cannot start local processes directly, but this page will use the backend when it is running."}
+      </div>
+    </div>`;
+}
+
+function buildCodexPrompt(a) {
+  const p = PLATFORMS[a.platform] || PLATFORMS.blog;
+  const task = CODEX_TASKS[codexTask] || CODEX_TASKS.polish;
+  const target = AGENT_TARGETS[agentTarget] || AGENT_TARGETS.codex;
+  const file = a._file ? `articles/${a._file}` : `articles/${slugify(a.title)}.md`;
+  const tags = (a.tags || []).join(", ") || "none";
+  return [
+    `You are ${target.label}, editing my Article Studio draft in this repo.`,
+    ``,
+    `Task: ${task.ask}`,
+    ``,
+    `Article file: ${file}`,
+    `Title: ${a.title || "Untitled"}`,
+    `Platform: ${p.label}`,
+    `Status: ${a.status}`,
+    `Tags: ${tags}`,
+    `Summary: ${a.summary || "none"}`,
+    ``,
+    `Constraints:`,
+    `- Edit the Markdown file directly and preserve the YAML front matter.`,
+    `- Keep image references as relative paths under articles/images/.`,
+    `- Keep the draft appropriate for ${p.label}.`,
+    `- After editing, briefly summarize what changed.`,
+    ``,
+    `Current draft:`,
+    a.body || "(empty draft)"
+  ].join("\n");
+}
+
+function wireCodex() {
+  const a = current(); if (!a) return;
+  $$("#agentTargetSeg button").forEach(btn => btn.onclick = () => {
+    agentTarget = btn.dataset.agentTarget;
+    aiAssistResult = null;
+    renderInspector();
+  });
+  $$(".codex-preset").forEach(btn => btn.onclick = () => {
+    codexTask = btn.dataset.codexTask;
+    aiAssistResult = null;
+    renderInspector();
+  });
+  $("#checkBackend").onclick = () => checkBackend(true);
+  $("#copyCodexPrompt").onclick = async () => {
+    const prompt = $("#codexPrompt").value;
+    try {
+      await navigator.clipboard.writeText(prompt);
+      toast("Prompt copied.", "good");
+    } catch (e) {
+      toast("Clipboard failed. Select and copy the prompt manually.", "bad");
+    }
+  };
+  $("#saveCodexTask").onclick = saveCodexTask;
+  $("#runAiAssist").onclick = runAiAssist;
+  const applyBtn = $("#applyAiAssist");
+  if (applyBtn) applyBtn.onclick = applyAiAssistResult;
+  const discardBtn = $("#discardAiAssist");
+  if (discardBtn) discardBtn.onclick = () => { aiAssistResult = null; renderInspector(); };
+}
+
+async function saveCodexTask() {
+  const a = current();
+  if (!a) return;
+  if (!dirHandle) return toast("Connect a folder first.", "bad");
+  await commitSave({ force: false });
+  const target = AGENT_TARGETS[agentTarget] || AGENT_TARGETS.codex;
+  taskNotesDirHandle = await dirHandle.getDirectoryHandle(target.taskDir, { create: true });
+  const prompt = $("#codexPrompt").value;
+  const fname = `${slugify(a.title)}-${codexTask}-task.md`;
+  try {
+    const fh = await taskNotesDirHandle.getFileHandle(fname, { create: true });
+    const w = await fh.createWritable();
+    await w.write(`# ${target.label} task: ${a.title || "Untitled"}\n\n${prompt}\n`);
+    await w.close();
+    toast(`Saved ${target.taskDir}/${fname}`, "good");
+  } catch (e) {
+    toast(`Couldn't save ${target.label} task: ` + e.message, "bad");
+  }
+}
+
+async function checkBackend(showToast = false) {
+  try {
+    const res = await fetch("/api/health", { cache: "no-store" });
+    if (!res.ok) throw new Error("Backend health check failed");
+    const data = await res.json();
+    backendStatus = { checked: true, ok: true, codex: !!data.codex, claude: !!data.claude, error: "" };
+    if (showToast) {
+      const parts = [];
+      parts.push(`Codex ${data.codex ? "✓" : "✗"}`);
+      parts.push(`Claude Code ${data.claude ? "✓" : "✗"}`);
+      toast(`Backend ready — ${parts.join(" · ")}`, (data.codex || data.claude) ? "good" : "bad");
+    }
+  } catch (e) {
+    backendStatus = { checked: true, ok: false, codex: false, claude: false, error: e.message };
+    if (showToast) toast("Backend not running. Start with serve.command.", "bad");
+  }
+  if (inspTab === "codex") renderInspector();
+}
+
+async function runAiAssist() {
+  const a = current();
+  if (!a || aiAssistBusy) return;
+  aiAssistBusy = true;
+  aiAssistResult = null;
+  renderInspector();
+  try {
+    const res = await fetch("/api/run", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        engine: agentTarget,
+        task: codexTask,
+        prompt: $("#codexPrompt").value,
+        platform: (PLATFORMS[a.platform] || PLATFORMS.blog).label,
+        article: {
+          file: a._file || `${slugify(a.title)}.md`,
+          id: a.id,
+          title: a.title,
+          platform: a.platform,
+          status: a.status,
+          tags: a.tags || [],
+          images: a.images || [],
+          created: a.created,
+          summary: a.summary || "",
+          body: a.body || ""
+        }
+      })
+    });
+    const data = await res.json().catch(() => ({}));
+    const label = (AGENT_TARGETS[agentTarget] || AGENT_TARGETS.codex).label;
+    if (!res.ok) throw new Error(data.error || `${label} run failed`);
+    aiAssistResult = data.result;
+    if (data.file) {
+      const a = current();
+      if (a) a._file = data.file;
+    }
+    toast(`${label} result ready.`, "good");
+  } catch (e) {
+    toast(e.message || "Run failed.", "bad");
+  } finally {
+    aiAssistBusy = false;
+    renderInspector();
+  }
+}
+
+function applyAiAssistResult() {
+  const a = current();
+  if (!a || !aiAssistResult) return;
+  if (aiAssistResult.title) a.title = aiAssistResult.title;
+  if (aiAssistResult.summary != null) a.summary = aiAssistResult.summary;
+  if (aiAssistResult.body) a.body = aiAssistResult.body;
+  aiAssistResult = null;
+  openEditor();
+  scheduleSave();
+  toast("AI result applied. Review before publishing.", "good");
 }
 
 async function renderImages(body, a) {
@@ -1039,12 +1542,24 @@ async function renderImages(body, a) {
     <div class="img-grid" id="imgGrid"></div>`;
   const grid = $("#imgGrid");
   for (const im of (a.images || [])) {
+    if (!im.people) im.people = [];
     const src = await resolveImageSrc(im);
     const cell = document.createElement("div");
     cell.className = "img-cell";
+    const people = state.people || [];
+    const tagBox = people.length
+      ? `<details class="img-tag-box">
+           <summary>🏷 ${im.people.length ? im.people.length + " tagged" : "Tag people"}</summary>
+           <div class="people-check">
+             ${people.map(p => `<label><input type="checkbox" data-tag-pid="${p.id}" ${im.people.includes(p.name) ? "checked" : ""}/> ${esc(p.name)}</label>`).join("")}
+           </div>
+         </details>`
+      : `<div class="img-tag-empty">Add people in the People tab to tag them here.</div>`;
     cell.innerHTML = `
       ${src ? `<img src="${src}" />` : `<div style="height:84px;display:flex;align-items:center;justify-content:center;color:var(--text-dim2);font-size:11px">missing</div>`}
       <div class="img-name">${esc(im.name)}</div>
+      ${im.people.length ? `<div class="img-people-chips">${im.people.map(n => `<span class="tag">${esc(n)}</span>`).join("")}</div>` : ""}
+      ${tagBox}
       <div class="img-actions">
         <button data-act="md" title="Insert into article">＋md</button>
         <button data-act="rm" title="Remove">✕</button>
@@ -1056,6 +1571,14 @@ async function renderImages(body, a) {
       a.images = a.images.filter(x => x !== im);
       scheduleSave(); renderInspector();
     };
+    cell.querySelectorAll("[data-tag-pid]").forEach(cb => cb.onchange = () => {
+      const person = (state.people || []).find(x => x.id === cb.dataset.tagPid);
+      if (!person) return;
+      if (cb.checked) { if (!im.people.includes(person.name)) im.people.push(person.name); }
+      else im.people = im.people.filter(n => n !== person.name);
+      scheduleSave();
+      renderInspector();   // refresh chip count
+    });
     grid.appendChild(cell);
   }
 }
@@ -1198,6 +1721,20 @@ async function syncAll() {
 /* ---------------- helpers ---------------- */
 function wordCount(s) { return (s || "").trim() ? s.trim().split(/\s+/).length : 0; }
 function fmtDate(iso) { try { return new Date(iso).toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short" }); } catch (e) { return iso; } }
+
+/* ---------------- scheduling helpers ---------------- */
+function todayKey() { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`; }
+function dateKey(d) { return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`; }
+function fmtDay(key) { try { const [y,m,d] = key.split("-").map(Number); return new Date(y, m-1, d).toLocaleDateString(undefined, { weekday:"short", month:"short", day:"numeric" }); } catch(e){ return key; } }
+// returns {label, cls} for a card chip, or null
+function scheduleChip(a) {
+  if (!a.publishDate) return null;
+  if (a.status === "posted") return { label: "✓ " + fmtDay(a.publishDate), cls: "sch-done" };
+  const today = todayKey();
+  if (a.publishDate < today) return { label: "⚠ " + fmtDay(a.publishDate), cls: "sch-over" };
+  if (a.publishDate === today) return { label: "● Today", cls: "sch-today" };
+  return { label: "📅 " + fmtDay(a.publishDate), cls: "sch-up" };
+}
 function toast(msg, kind) {
   const t = document.createElement("div");
   t.className = "toast " + (kind || "");
@@ -1208,6 +1745,92 @@ function toast(msg, kind) {
 }
 function fileToDataUrl(file) { return new Promise(res => { const r = new FileReader(); r.onload = () => res(r.result); r.readAsDataURL(file); }); }
 function closeMenu() { $("#menuModal").classList.remove("show"); }
+
+/* ---------------- calendar ---------------- */
+let calYear = null, calMonth = null;   // month currently shown (0-based month)
+function openCalendar() {
+  if (calYear === null) { const d = new Date(); calYear = d.getFullYear(); calMonth = d.getMonth(); }
+  $("#calModal").classList.add("show");
+  renderCalendar();
+}
+function closeCalendar() { $("#calModal").classList.remove("show"); }
+function calShift(delta) {
+  calMonth += delta;
+  if (calMonth < 0) { calMonth = 11; calYear--; }
+  else if (calMonth > 11) { calMonth = 0; calYear++; }
+  renderCalendar();
+}
+function renderCalendar() {
+  const label = new Date(calYear, calMonth, 1).toLocaleDateString(undefined, { month: "long", year: "numeric" });
+  $("#calMonthLabel").textContent = label;
+
+  // group scheduled articles by date key
+  const byDate = {};
+  for (const a of state.articles) {
+    if (!a.publishDate) continue;
+    (byDate[a.publishDate] = byDate[a.publishDate] || []).push(a);
+  }
+
+  const first = new Date(calYear, calMonth, 1);
+  const startDow = (first.getDay() + 6) % 7;              // Monday-first
+  const daysInMonth = new Date(calYear, calMonth + 1, 0).getDate();
+  const today = todayKey();
+
+  const dow = ["Mon","Tue","Wed","Thu","Fri","Sat","Sun"];
+  let html = `<div class="cal-grid">`;
+  for (const d of dow) html += `<div class="cal-dow">${d}</div>`;
+  for (let i = 0; i < startDow; i++) html += `<div class="cal-cell empty"></div>`;
+  for (let day = 1; day <= daysInMonth; day++) {
+    const key = dateKey(new Date(calYear, calMonth, day));
+    const items = byDate[key] || [];
+    const isToday = key === today;
+    html += `<div class="cal-cell ${isToday ? "today" : ""}">
+      <div class="cal-daynum">${day}</div>
+      <div class="cal-items">
+        ${items.map(a => {
+          const p = PLATFORMS[a.platform] || PLATFORMS.blog;
+          const over = a.status !== "posted" && key < today;
+          return `<div class="cal-item ${a.status === "posted" ? "done" : over ? "over" : ""}" data-cal-id="${a.id}" title="${esc(a.title)||"Untitled"} · ${p.label}">
+            <span class="cal-dot" style="background:${p.color}"></span>${esc(a.title) || "Untitled"}
+          </div>`;
+        }).join("")}
+      </div>
+    </div>`;
+  }
+  html += `</div>`;
+  $("#calBody").innerHTML = html;
+
+  // upcoming list (next scheduled, not yet posted)
+  const upcoming = state.articles
+    .filter(a => a.publishDate && a.status !== "posted" && a.publishDate >= today)
+    .sort((x, y) => x.publishDate.localeCompare(y.publishDate))
+    .slice(0, 6);
+  const overdue = state.articles
+    .filter(a => a.publishDate && a.status !== "posted" && a.publishDate < today)
+    .sort((x, y) => x.publishDate.localeCompare(y.publishDate));
+  let up = "";
+  if (overdue.length) up += `<div class="cal-up-head" style="color:var(--danger)">⚠ Overdue (${overdue.length})</div>` +
+    overdue.map(a => calUpRow(a)).join("");
+  up += `<div class="cal-up-head">Upcoming</div>`;
+  up += upcoming.length ? upcoming.map(a => calUpRow(a)).join("") : `<div class="empty-hint" style="padding:8px">Nothing scheduled. Set a publish date in an article's <b>Meta</b> tab.</div>`;
+  $("#calUpcoming").innerHTML = up;
+
+  $$("#calModal [data-cal-id]").forEach(el => el.onclick = () => {
+    currentId = el.dataset.calId;
+    closeCalendar();
+    renderLanes();
+    openEditor();
+  });
+}
+function calUpRow(a) {
+  const p = PLATFORMS[a.platform] || PLATFORMS.blog;
+  return `<div class="cal-up-row" data-cal-id="${a.id}">
+    <span class="cal-dot" style="background:${p.color}"></span>
+    <span class="cal-up-date">${fmtDay(a.publishDate)}</span>
+    <span class="cal-up-title">${esc(a.title) || "Untitled"}</span>
+    <span class="pill" style="border-color:${p.color};color:${p.color}">${p.label}</span>
+  </div>`;
+}
 
 /* ---------------- events ---------------- */
 $("#connectBtn").onclick = connectFolder;
@@ -1222,6 +1845,12 @@ $("#reloadBtn").onclick = () => {
 $("#keepMine").onclick = () => resolveConflict("mine");
 $("#loadTheirs").onclick = () => resolveConflict("theirs");
 $("#newBtn").onclick = newArticle;
+$("#calendarBtn").onclick = openCalendar;
+$("#calClose").onclick = closeCalendar;
+$("#calPrev").onclick = () => calShift(-1);
+$("#calNext").onclick = () => calShift(1);
+$("#calToday").onclick = () => { const d = new Date(); calYear = d.getFullYear(); calMonth = d.getMonth(); renderCalendar(); };
+$("#calModal").onclick = e => { if (e.target.id === "calModal") closeCalendar(); };
 $("#menuBtn").onclick = () => $("#menuModal").classList.add("show");
 $("#closeMenu").onclick = closeMenu;
 $("#menuModal").onclick = e => { if (e.target.id === "menuModal") closeMenu(); };
@@ -1253,16 +1882,18 @@ function showHelp() {
   $("#menuModal").classList.add("show");
   const m = $("#menuModal .modal");
   m.innerHTML = `
-    <h3>How the Claude Code bridge works</h3>
-    <p>This app and Claude Code share the same files — no server in between.</p>
+    <h3>How the agent bridge works</h3>
+    <p>This app, Codex, and Claude Code can share the same files.</p>
     <ol style="font-size:13px;color:var(--text-dim);line-height:1.7;padding-left:18px">
       <li>Click <b>🔗 Connect folder</b> and pick <kbd>article_publisher/articles</kbd>.</li>
       <li>Every article is saved as a <kbd>.md</kbd> file with YAML front-matter (title, platform, status, tags, images).</li>
-      <li>In Claude Code, just say e.g. <i>"polish the LinkedIn post in articles/, tighten the hook"</i> — it edits the same file.</li>
-      <li>Hit <b>↻ Reload</b> here to pull Claude's edits back into the app.</li>
-      <li>Images land in <kbd>articles/images/</kbd> and are referenced by relative path, so Medium/Luma uploads and Claude both see them.</li>
+      <li>Use the <b>Agents</b> tab to choose Codex or Claude Code, then copy a task prompt or save a task note.</li>
+      <li>Task notes are saved under <kbd>.codex-tasks/</kbd> or <kbd>.claude-tasks/</kbd>.</li>
+      <li>Run that task against the shared <kbd>articles/</kbd> folder — the agent edits the same file.</li>
+      <li>Hit <b>↻ Reload</b> here to pull edits back into the app.</li>
+      <li>Images land in <kbd>articles/images/</kbd> and are referenced by relative path, so publishing tools and agents both see them.</li>
     </ol>
-    <p style="margin-top:14px;font-size:12px">No folder support? You're on Safari/Firefox. Use <b>Export</b> / <b>Save all</b> from this menu and point Claude at the downloaded files instead.</p>
+    <p style="margin-top:14px;font-size:12px">No folder support? You're on Safari/Firefox. Use <b>Export</b> / <b>Save all</b> from this menu and point your agent at the downloaded files instead.</p>
     <div class="row"><button class="btn primary" onclick="document.getElementById('menuModal').classList.remove('show');location.reload? null:null;document.getElementById('menuModal').classList.remove('show')">Got it</button></div>`;
   m.querySelector(".btn.primary").onclick = closeMenu;
 }
@@ -1272,6 +1903,7 @@ loadLocal();
 if (!fsSupported) { $("#connectBtn").textContent = "🔗 Connect (Chrome/Edge)"; }
 renderAll();
 applyView();
+checkBackend(false);
 // open most recent if any
 if (state.articles.length) { currentId = state.articles[0].id; openEditor(); }
 </script>

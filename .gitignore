@@ -8,3 +8,12 @@ article-studio-backup.json
 # Remove these two lines if you want images committed too.
 articles/images/*
 !articles/images/.gitkeep
+
+# Personal content stays local — public repo is code only.
+# Your article drafts (keep only the welcome sample as documentation):
+articles/*.md
+!articles/welcome-linkedin-post.md
+# Your people directory (real contacts) and agent task notes:
+articles/people.json
+articles/.codex-tasks/
+articles/.claude-tasks/
