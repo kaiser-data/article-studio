@@ -280,6 +280,23 @@
   .export-out.sm { min-height: 90px; margin-top: 4px; font-size: 12.5px; }
   .export-sub { font-size: 11px; text-transform: uppercase; letter-spacing: .5px; color: var(--text-dim2); font-weight: 700; margin: 12px 0 2px; }
 
+  /* pre-publish checklist */
+  .chk-panel { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 11px 12px; margin-bottom: 16px; }
+  .chk-head { display: flex; align-items: center; justify-content: space-between; font-size: 12px; font-weight: 700; color: var(--text); }
+  .chk-count { font-size: 11px; color: var(--text-dim2); background: var(--panel-2); border-radius: 10px; padding: 1px 8px; }
+  .chk-count.ready { color: #221200; background: var(--ready); }
+  .chk-bar { height: 4px; background: var(--panel-2); border-radius: 3px; margin: 8px 0 10px; overflow: hidden; }
+  .chk-fill { height: 100%; background: var(--accent); transition: width .2s; }
+  .chk-fill.ready { background: var(--ready); }
+  .chk-list { display: flex; flex-direction: column; gap: 2px; }
+  .chk { display: flex; align-items: flex-start; gap: 8px; font-size: 12.5px; color: var(--text-dim); padding: 4px 2px; cursor: pointer; line-height: 1.4; }
+  .chk.on { color: var(--text); }
+  .chk input { margin-top: 2px; flex: 0 0 auto; accent-color: var(--accent); }
+  .chk input:disabled { cursor: default; }
+  .chk-auto { font-style: normal; font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: .4px; padding: 1px 5px; border-radius: 8px; margin-left: 3px; white-space: nowrap; }
+  .chk-auto.ok { color: var(--ready); border: 1px solid var(--ready); }
+  .chk-auto.no { color: var(--draft); border: 1px solid var(--line-2); }
+
   /* codex tab */
   .codex-panel { display: flex; flex-direction: column; gap: 12px; }
   .codex-presets { display: grid; grid-template-columns: 1fr 1fr; gap: 7px; }
@@ -1100,16 +1117,93 @@ function renderInspector() {
   else if (inspTab === "meta") body.innerHTML = renderMeta(a);
   else if (inspTab === "people") body.innerHTML = renderPeople(a);
   else body.innerHTML = renderCodex(a);
+  if (inspTab === "tips") wireChecklist();
   if (inspTab === "meta") wireMeta();
   if (inspTab === "images") wireImages();
   if (inspTab === "people") wirePeople();
   if (inspTab === "codex") wireCodex();
 }
 
+/* ---------------- pre-publish checklist ---------------- */
+function firstLine(body) { return ((body || "").split("\n").find(l => l.trim()) || "").trim(); }
+const CHECKLISTS = {
+  linkedin: [
+    { id: "hook", label: "Hook fits before ‘see more’ (first line ≤ 210 chars)", auto: a => { const l = firstLine(a.body).length; return l > 0 && l <= 210; } },
+    { id: "hashtags", label: "3–5 hashtags", auto: a => { const n = ((a.body || "").match(/#[\p{L}\w]+/gu) || []).length; return n >= 3 && n <= 5; } },
+    { id: "len", label: "Under 3000 characters", auto: a => (a.body || "").length > 0 && (a.body || "").length <= 3000 },
+    { id: "links", label: "Links moved to the first comment (none in body)", auto: a => !/\bhttps?:\/\//.test(a.body || "") },
+    { id: "mention", label: "Tagged relevant people / added @mentions" },
+    { id: "cta", label: "Ends with a clear question or CTA" }
+  ],
+  medium: [
+    { id: "subheads", label: "Has subheadings (## …)", auto: a => /^##\s/m.test(a.body || "") },
+    { id: "len", label: "Substantial (≥ 800 words)", auto: a => wordCount(a.body) >= 800 },
+    { id: "cover", label: "Cover image added", auto: a => (a.images || []).length >= 1 },
+    { id: "tags", label: "1–5 tags set", auto: a => (a.tags || []).length >= 1 && (a.tags || []).length <= 5 },
+    { id: "quote", label: "Pull quote or takeaways added" }
+  ],
+  toastmasters: [
+    { id: "len", label: "500–800 words", auto: a => { const w = wordCount(a.body); return w >= 500 && w <= 800; } },
+    { id: "cta", label: "Ends with an invitation / call to action" },
+    { id: "pathways", label: "Ties back to Pathways / roles" }
+  ],
+  luma: [
+    { id: "date", label: "Event / publish date set", auto: a => !!a.publishDate },
+    { id: "cover", label: "Cover image (16:9) added", auto: a => (a.images || []).length >= 1 },
+    { id: "agenda", label: "Agenda / timeline included" },
+    { id: "logistics", label: "Date, time, location & RSVP clear" }
+  ],
+  blog: [
+    { id: "heads", label: "Clear heading structure (## …)", auto: a => /^##\s/m.test(a.body || "") },
+    { id: "meta", label: "Meta description set (Summary)", auto: a => !!(a.summary || "").trim() },
+    { id: "links", label: "Links checked" }
+  ]
+};
+const CHECK_UNIVERSAL = [
+  { id: "alt", label: "All images have alt text", auto: a => { const imgs = [...(a.body || "").matchAll(/!\[([^\]]*)\]\([^)]+\)/g)]; return imgs.length === 0 || imgs.every(m => m[1].trim().length > 0); } }
+];
+function checklistItems(a) { return (CHECKLISTS[a.platform] || CHECKLISTS.blog).concat(CHECK_UNIVERSAL); }
+function renderChecklist(a) {
+  const items = checklistItems(a);
+  a.checklist = a.checklist || {};
+  let done = 0;
+  const rows = items.map(it => {
+    let checked, locked = false, tag = "";
+    if (it.auto) { checked = !!it.auto(a); locked = true; tag = `<em class="chk-auto ${checked ? "ok" : "no"}">${checked ? "auto ✓" : "needs work"}</em>`; }
+    else checked = !!a.checklist[it.id];
+    if (checked) done++;
+    return `<label class="chk ${checked ? "on" : ""}">
+      <input type="checkbox" ${checked ? "checked" : ""} ${locked ? "disabled" : ""} data-chk="${it.id}"/>
+      <span>${it.label} ${tag}</span>
+    </label>`;
+  }).join("");
+  const pct = Math.round(done / items.length * 100);
+  const ready = done === items.length;
+  return `<div class="chk-panel">
+    <div class="chk-head">
+      <span>✅ Pre-publish checklist</span>
+      <span class="chk-count ${ready ? "ready" : ""}">${done}/${items.length}</span>
+    </div>
+    <div class="chk-bar"><div class="chk-fill ${ready ? "ready" : ""}" style="width:${pct}%"></div></div>
+    <div class="chk-list">${rows}</div>
+  </div>`;
+}
+function wireChecklist() {
+  const a = current(); if (!a) return;
+  $$("#inspBody [data-chk]:not([disabled])").forEach(cb => cb.onchange = () => {
+    a.checklist = a.checklist || {};
+    a.checklist[cb.dataset.chk] = cb.checked;
+    scheduleSave();
+    renderInspector();
+  });
+}
+
 function renderTips(a) {
   const pk = a ? a.platform : "linkedin";
   const p = PLATFORMS[pk];
-  let html = `<div class="tip-platform"><span class="swatch" style="width:9px;height:9px;border-radius:3px;background:${p.color}"></span>${p.label} playbook</div>`;
+  let html = "";
+  if (a) html += renderChecklist(a);
+  html += `<div class="tip-platform"><span class="swatch" style="width:9px;height:9px;border-radius:3px;background:${p.color}"></span>${p.label} playbook</div>`;
   html += `<dl class="spec-grid">`;
   for (const [k, v] of Object.entries(p.specs)) html += `<dt>${k}</dt><dd>${v}</dd>`;
   html += `</dl>`;

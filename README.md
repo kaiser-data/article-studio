@@ -70,6 +70,10 @@ The app and your coding agent edit the **same files**:
   overdue/today/upcoming chips on cards and an upcoming list. Dates round-trip in
   front-matter so the agents see your schedule too.
 - **Markdown editor** with Write / Split / Preview and live word + character counts.
+- **Pre-publish checklist** — per-platform, in the Tips tab, with a progress bar.
+  Measurable items auto-tick live (hook ≤ 210 chars, 3–5 hashtags, word count,
+  cover image, image alt text, links out of the LinkedIn body…); the rest are
+  manual reminders. Turns the playbooks into an actionable gate before "Posted".
 - **Per-platform playbooks** — length targets, hook rules, hashtag and formatting
   tips for LinkedIn, Medium, Toastmasters, Luma, and generic blogs.
 - **Image upload** (drag & drop) — auto-compressed/resized on upload (≤1920px),
