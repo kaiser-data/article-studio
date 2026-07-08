@@ -89,6 +89,10 @@ The app and your coding agent edit the **same files**:
 - **Conflict-safe sync** — if an agent edits a file you have open, the app
   detects it and shows a banner (*Save my version* / *Load file*) instead of
   silently overwriting. **↻ Reload** warns before discarding unsaved in-app edits.
+- **Publish-ready export** (⤴ button) — converts a draft to what each platform
+  actually accepts: **LinkedIn** (Markdown bold → Unicode bold that survives, links
+  pulled into a ready-to-paste *first comment*), **Medium** (clean Markdown), **Plain
+  text**, and **Luma** (event description + a downloadable `.ics` from the publish date).
 - **Backup / restore** via JSON, plus "Save all to folder".
 
 ## Folders

@@ -272,6 +272,14 @@
   .cal-up-date { color: var(--text-dim); flex: 0 0 96px; }
   .cal-up-title { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
+  /* export modal */
+  .export-modal { width: 620px; max-width: 96vw; }
+  .export-hint { font-size: 12px; color: var(--text-dim); margin: 4px 0 10px; line-height: 1.5; }
+  .export-out { width: 100%; min-height: 240px; background: var(--bg-2); border: 1px solid var(--line); color: var(--text); border-radius: 9px; padding: 12px 14px; font-family: var(--sans); font-size: 13px; line-height: 1.55; resize: vertical; }
+  .export-out:focus { outline: none; border-color: var(--accent); }
+  .export-out.sm { min-height: 90px; margin-top: 4px; font-size: 12.5px; }
+  .export-sub { font-size: 11px; text-transform: uppercase; letter-spacing: .5px; color: var(--text-dim2); font-weight: 700; margin: 12px 0 2px; }
+
   /* codex tab */
   .codex-panel { display: flex; flex-direction: column; gap: 12px; }
   .codex-presets { display: grid; grid-template-columns: 1fr 1fr; gap: 7px; }
@@ -384,6 +392,7 @@
             <button data-view="split">Split</button>
             <button data-view="preview">Preview</button>
           </div>
+          <button class="btn ghost sm" id="exportBtn" title="Platform-ready copy / export">⤴ Export</button>
           <button class="btn ghost sm" id="copyBtn" title="Copy body to clipboard">⧉ Copy</button>
           <button class="btn ghost sm danger" id="deleteBtn">🗑</button>
         </div>
@@ -467,6 +476,29 @@
     </div>
     <div class="cal-body" id="calBody"></div>
     <div class="cal-upcoming" id="calUpcoming"></div>
+  </div>
+</div>
+
+<!-- export / publish-ready modal -->
+<div class="modal-bg" id="exportModal">
+  <div class="modal export-modal">
+    <div class="cal-head">
+      <h3 style="margin:0">⤴ Publish-ready export</h3>
+      <div class="seg" id="exportSeg" style="flex:1;max-width:360px">
+        <button data-fmt="linkedin">LinkedIn</button>
+        <button data-fmt="medium">Medium</button>
+        <button data-fmt="plain">Plain</button>
+        <button data-fmt="luma">Luma .ics</button>
+      </div>
+      <button class="btn ghost sm" id="exportClose">✕</button>
+    </div>
+    <div class="export-hint" id="exportHint"></div>
+    <textarea class="export-out" id="exportOut" spellcheck="false"></textarea>
+    <div id="exportExtra"></div>
+    <div class="row" style="margin-top:12px">
+      <button class="btn ghost" id="exportDownload" style="display:none">⬇ Download .ics</button>
+      <button class="btn primary" id="exportCopy">⧉ Copy</button>
+    </div>
   </div>
 </div>
 
@@ -1772,6 +1804,105 @@ function calUpRow(a) {
   </div>`;
 }
 
+/* ---------------- platform-ready export ---------------- */
+let exportFormat = "linkedin";
+// Unicode "fonts" so bold survives on LinkedIn (which strips markdown)
+function toUnicode(str, kind) {
+  return [...str].map(ch => {
+    const c = ch.codePointAt(0);
+    if (kind === "bold") {
+      if (c >= 65 && c <= 90) return String.fromCodePoint(0x1D5D4 + (c - 65));
+      if (c >= 97 && c <= 122) return String.fromCodePoint(0x1D5EE + (c - 97));
+      if (c >= 48 && c <= 57) return String.fromCodePoint(0x1D7EC + (c - 48));
+    } else if (kind === "italic") {
+      if (c >= 65 && c <= 90) return String.fromCodePoint(0x1D608 + (c - 65));
+      if (c >= 97 && c <= 122) return String.fromCodePoint(0x1D622 + (c - 97));
+    }
+    return ch;
+  }).join("");
+}
+function toLinkedIn(md) {
+  const links = [];
+  let t = (md || "");
+  t = t.replace(/!\[[^\]]*\]\([^)]+\)/g, "");                         // drop images (uploaded separately)
+  t = t.replace(/\[([^\]]+)\]\(([^)]+)\)/g, (m, text, url) => { links.push({ text, url }); return text; });
+  t = t.split("\n").map(line => {
+    const h = line.match(/^(#{1,6})\s+(.*)$/);
+    if (h) return toUnicode(h[2], "bold");                            // headings -> bold line
+    if (/^\s*(-{3,}|\*{3,})\s*$/.test(line)) return "";               // hr -> blank
+    let l = line.replace(/^\s*[-*+]\s+/, "• ").replace(/^\s*>\s?/, "");
+    return l;
+  }).join("\n");
+  t = t.replace(/\*\*([^*]+)\*\*/g, (m, x) => toUnicode(x, "bold"));
+  t = t.replace(/(^|[^*])\*([^*]+)\*(?!\*)/g, (m, pre, x) => pre + toUnicode(x, "italic"));
+  t = t.replace(/`([^`]+)`/g, "$1");
+  t = t.replace(/\n{3,}/g, "\n\n").trim();
+  return { text: t, links };
+}
+function toPlain(md) {
+  return (md || "")
+    .replace(/!\[[^\]]*\]\([^)]+\)/g, "")
+    .replace(/\[([^\]]+)\]\(([^)]+)\)/g, "$1 ($2)")
+    .replace(/^#{1,6}\s+/gm, "")
+    .replace(/\*\*([^*]+)\*\*/g, "$1").replace(/(^|[^*])\*([^*]+)\*/g, "$1$2")
+    .replace(/`([^`]+)`/g, "$1")
+    .replace(/^\s*>\s?/gm, "").replace(/^\s*[-*+]\s+/gm, "• ")
+    .replace(/\n{3,}/g, "\n\n").trim();
+}
+function toICS(a) {
+  const dt = (a.publishDate || todayKey()).replace(/-/g, "");
+  const stamp = nowISO().replace(/[-:]/g, "").replace(/\.\d+Z$/, "Z");
+  const esc = s => (s || "").replace(/([,;\\])/g, "\\$1").replace(/\n/g, "\\n");
+  return [
+    "BEGIN:VCALENDAR", "VERSION:2.0", "PRODID:-//Article Studio//EN", "CALSCALE:GREGORIAN",
+    "BEGIN:VEVENT",
+    "UID:" + (a.id || "evt") + "@article-studio",
+    "DTSTAMP:" + stamp,
+    "DTSTART;VALUE=DATE:" + dt,
+    "SUMMARY:" + esc(a.title || "Event"),
+    "DESCRIPTION:" + esc(a.summary || toPlain(a.body).slice(0, 500)),
+    "END:VEVENT", "END:VCALENDAR"
+  ].join("\r\n");
+}
+function openExport() {
+  const a = current();
+  if (!a) return toast("Open an article first.", "bad");
+  exportFormat = a.platform === "medium" || a.platform === "blog" ? "medium"
+    : a.platform === "luma" ? "luma"
+    : a.platform === "toastmasters" ? "plain" : "linkedin";
+  $("#exportModal").classList.add("show");
+  renderExport();
+}
+function closeExport() { $("#exportModal").classList.remove("show"); }
+function renderExport() {
+  const a = current(); if (!a) return;
+  $$("#exportSeg button").forEach(b => b.classList.toggle("active", b.dataset.fmt === exportFormat));
+  const out = $("#exportOut"), extra = $("#exportExtra"), hint = $("#exportHint"), dl = $("#exportDownload");
+  extra.innerHTML = ""; dl.style.display = "none"; out.style.display = "block";
+  if (exportFormat === "linkedin") {
+    const { text, links } = toLinkedIn(a.body);
+    hint.textContent = "Bold is converted to Unicode so it survives on LinkedIn. Put links in the first comment for better reach.";
+    out.value = text;
+    if (links.length) {
+      extra.innerHTML = `<div class="export-sub">First comment (links out of the post body):</div>
+        <textarea class="export-out sm" id="exportComment" spellcheck="false">👇 Links:\n${links.map(l => `${l.text}: ${l.url}`).join("\n")}</textarea>
+        <button class="btn ghost sm" id="copyComment" style="margin-top:6px">⧉ Copy first comment</button>`;
+    }
+  } else if (exportFormat === "medium") {
+    hint.textContent = "Medium imports Markdown cleanly — paste this into a new story, or use Import.";
+    out.value = a.body || "";
+  } else if (exportFormat === "plain") {
+    hint.textContent = "Formatting stripped to plain text — for newsletters, emails, or anywhere without Markdown.";
+    out.value = toPlain(a.body);
+  } else if (exportFormat === "luma") {
+    hint.textContent = `Event description + a calendar file${a.publishDate ? " for " + fmtDay(a.publishDate) : " (set a publish date in Meta for the .ics date)"}. `;
+    out.value = toPlain(a.body);
+    dl.style.display = "inline-block";
+  }
+  const cc = $("#copyComment");
+  if (cc) cc.onclick = () => { navigator.clipboard.writeText($("#exportComment").value); toast("First comment copied.", "good"); };
+}
+
 /* ---------------- events ---------------- */
 $("#connectBtn").onclick = connectFolder;
 $("#reloadBtn").onclick = () => {
@@ -1785,6 +1916,20 @@ $("#reloadBtn").onclick = () => {
 $("#keepMine").onclick = () => resolveConflict("mine");
 $("#loadTheirs").onclick = () => resolveConflict("theirs");
 $("#newBtn").onclick = newArticle;
+$("#exportBtn").onclick = openExport;
+$("#exportClose").onclick = closeExport;
+$("#exportModal").onclick = e => { if (e.target.id === "exportModal") closeExport(); };
+$$("#exportSeg button").forEach(b => b.onclick = () => { exportFormat = b.dataset.fmt; renderExport(); });
+$("#exportCopy").onclick = () => { navigator.clipboard.writeText($("#exportOut").value); toast("Copied — paste into " + exportFormat + ".", "good"); };
+$("#exportDownload").onclick = () => {
+  const a = current(); if (!a) return;
+  const blob = new Blob([toICS(a)], { type: "text/calendar" });
+  const url = URL.createObjectURL(blob);
+  const el = document.createElement("a");
+  el.href = url; el.download = slugify(a.title) + ".ics"; el.click();
+  URL.revokeObjectURL(url);
+  toast("Downloaded .ics", "good");
+};
 $("#calendarBtn").onclick = openCalendar;
 $("#calClose").onclick = closeCalendar;
 $("#calPrev").onclick = () => calShift(-1);
