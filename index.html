@@ -289,6 +289,14 @@
   .tpl-desc { font-size: 12px; color: var(--text-dim); flex: 1; line-height: 1.4; }
   .tpl-card .pill { align-self: flex-start; }
 
+  /* variant set */
+  .variant-list { display: flex; flex-direction: column; gap: 4px; }
+  .variant-row { display: flex; align-items: center; gap: 8px; font-size: 12.5px; padding: 6px 8px; border: 1px solid var(--line); border-radius: 7px; background: var(--panel); cursor: pointer; }
+  .variant-row:hover { border-color: var(--accent); }
+  .variant-row.me { cursor: default; border-color: var(--line-2); background: var(--panel-2); }
+  .variant-title { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--text); }
+  .variant-here { font-size: 10px; color: var(--text-dim2); text-transform: uppercase; letter-spacing: .4px; }
+
   /* pre-publish checklist */
   .chk-panel { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 11px 12px; margin-bottom: 16px; }
   .chk-head { display: flex; align-items: center; justify-content: space-between; font-size: 12px; font-weight: 700; color: var(--text); }
@@ -418,6 +426,7 @@
             <button data-view="split">Split</button>
             <button data-view="preview">Preview</button>
           </div>
+          <button class="btn ghost sm" id="repurposeBtn" title="Create a linked variant for another platform">⤳ Repurpose</button>
           <button class="btn ghost sm" id="exportBtn" title="Platform-ready copy / export">⤴ Export</button>
           <button class="btn ghost sm" id="copyBtn" title="Copy body to clipboard">⧉ Copy</button>
           <button class="btn ghost sm danger" id="deleteBtn">🗑</button>
@@ -503,6 +512,19 @@
     </div>
     <div class="cal-body" id="calBody"></div>
     <div class="cal-upcoming" id="calUpcoming"></div>
+  </div>
+</div>
+
+<!-- repurpose modal -->
+<div class="modal-bg" id="repurposeModal">
+  <div class="modal tpl-modal" style="width:520px">
+    <div class="cal-head">
+      <h3 style="margin:0">⤳ Repurpose for another platform</h3>
+      <span style="flex:1"></span>
+      <button class="btn ghost sm" id="repurposeClose">✕</button>
+    </div>
+    <div class="export-hint">Creates a <b>linked copy</b> of this draft with the target platform set, so you can adapt it there. The originals stay connected as a set (see the Meta tab). Then ask an agent: <i>"adapt this for LinkedIn"</i>.</div>
+    <div class="tpl-grid" id="repurposeGrid" style="grid-template-columns:1fr 1fr 1fr"></div>
   </div>
 </div>
 
@@ -975,7 +997,7 @@ function newArticle(tpl) {
   const platform = (tpl && tpl.platform) || (filterPlatform !== "all" ? filterPlatform : "linkedin");
   const a = {
     id: uid(), title: (tpl && tpl.title) || "", platform,
-    status: "idea", tags: (tpl && tpl.tags) ? tpl.tags.slice() : [], summary: "", publishDate: "",
+    status: "idea", tags: (tpl && tpl.tags) ? tpl.tags.slice() : [], summary: "", publishDate: "", group: "",
     images: [], body: (tpl && tpl.body) || "",
     created: nowISO(), updated: nowISO()
   };
@@ -1033,6 +1055,38 @@ function renderTemplates() {
     closeTemplateModal();
     newArticle(t && t.id === "blank" ? null : t);
   });
+}
+
+/* ---------------- repurpose (linked cross-platform variants) ---------------- */
+function articleGroup(a) { return a && a.group ? state.articles.filter(x => x.group === a.group) : (a ? [a] : []); }
+function openRepurpose() {
+  const a = current();
+  if (!a) return toast("Open an article first.", "bad");
+  $("#repurposeGrid").innerHTML = Object.entries(PLATFORMS).map(([k, p]) =>
+    `<button class="tpl-card" data-rp="${k}" ${k === a.platform ? 'style="opacity:.55"' : ""}>
+      <div class="tpl-label">${p.label}</div>
+      <span class="pill" style="border-color:${p.color};color:${p.color}">${k === a.platform ? "current" : "make variant"}</span>
+    </button>`).join("");
+  $$("#repurposeGrid .tpl-card").forEach(c => c.onclick = () => { closeRepurpose(); repurposeTo(c.dataset.rp); });
+  $("#repurposeModal").classList.add("show");
+}
+function closeRepurpose() { $("#repurposeModal").classList.remove("show"); }
+async function repurposeTo(platform) {
+  const src = current(); if (!src) return;
+  if (!src.group) src.group = "g" + uid();           // start (or reuse) the variant set
+  const copy = {
+    id: uid(), title: src.title, platform, status: "drafting",
+    tags: (src.tags || []).slice(), summary: src.summary || "", publishDate: "",
+    group: src.group, images: [], body: src.body || "",
+    created: nowISO(), updated: nowISO()
+  };
+  state.articles.unshift(copy);
+  currentId = copy.id;
+  saveLocal();
+  if (dirHandle) { await writeArticleFile(src); await writeArticleFile(copy); }  // persist source's new group + the copy
+  renderAll();
+  openEditor();
+  toast(`Created a ${(PLATFORMS[platform] || PLATFORMS.blog).label} variant — adapt it here.`, "good");
 }
 
 function deleteCurrent() {
@@ -1346,6 +1400,7 @@ function renderMeta(a) {
       <input id="metaTags" value="${esc((a.tags||[]).join(", "))}" placeholder="toastmasters, leadership, devops" />
       <div class="tags-row" style="margin-top:8px">${(a.tags||[]).map(t=>`<span class="tag">${esc(t)}</span>`).join("")}</div>
     </div>
+    ${renderVariants(a)}
     <div class="meta-field">
       <label>File</label>
       <input value="${esc(a._file || (slugify(a.title)+'.md (on save)'))}" readonly style="color:var(--text-dim)" />
@@ -1354,6 +1409,23 @@ function renderMeta(a) {
       <label>Timeline</label>
       <div style="font-size:12px;color:var(--text-dim)">Created ${fmtDate(a.created)}<br/>Updated ${fmtDate(a.updated)}</div>
     </div>`;
+}
+function renderVariants(a) {
+  const set = articleGroup(a);
+  if (set.length < 2) return "";
+  const rows = set.map(v => {
+    const p = PLATFORMS[v.platform] || PLATFORMS.blog;
+    const me = v.id === a.id;
+    return `<div class="variant-row ${me ? "me" : ""}" ${me ? "" : `data-variant-id="${v.id}"`}>
+      <span class="pill" style="border-color:${p.color};color:${p.color}">${p.label}</span>
+      <span class="variant-title">${esc(v.title) || "Untitled"}</span>
+      ${me ? '<span class="variant-here">this one</span>' : ""}
+    </div>`;
+  }).join("");
+  return `<div class="meta-field">
+    <label>Variant set <span style="text-transform:none;color:var(--text-dim2)">(${set.length} linked)</span></label>
+    <div class="variant-list">${rows}</div>
+  </div>`;
 }
 function wireMeta() {
   const a = current(); if (!a) return;
@@ -1369,6 +1441,7 @@ function wireMeta() {
   if (td) td.onclick = () => { a.publishDate = todayKey(); scheduleSave(); renderInspector(); renderLanes(); };
   const dc = $("#metaDateClear");
   if (dc) dc.onclick = () => { a.publishDate = ""; scheduleSave(); renderInspector(); renderLanes(); };
+  $$("[data-variant-id]").forEach(row => row.onclick = () => { currentId = row.dataset.variantId; renderLanes(); openEditor(); });
 }
 
 /* ---------------- People directory (mentions + photo tags) ---------------- */
@@ -2122,6 +2195,9 @@ $("#loadTheirs").onclick = () => resolveConflict("theirs");
 $("#newBtn").onclick = openTemplateModal;
 $("#tplClose").onclick = closeTemplateModal;
 $("#tplModal").onclick = e => { if (e.target.id === "tplModal") closeTemplateModal(); };
+$("#repurposeBtn").onclick = openRepurpose;
+$("#repurposeClose").onclick = closeRepurpose;
+$("#repurposeModal").onclick = e => { if (e.target.id === "repurposeModal") closeRepurpose(); };
 $("#exportBtn").onclick = openExport;
 $("#exportClose").onclick = closeExport;
 $("#exportModal").onclick = e => { if (e.target.id === "exportModal") closeExport(); };

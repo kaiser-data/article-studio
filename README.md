@@ -99,6 +99,10 @@ The app and your coding agent edit the **same files**:
 - **Conflict-safe sync** — if an agent edits a file you have open, the app
   detects it and shows a banner (*Save my version* / *Load file*) instead of
   silently overwriting. **↻ Reload** warns before discarding unsaved in-app edits.
+- **Repurpose** (⤳ button) — one click makes a linked copy of a draft for another
+  platform (e.g. a Medium piece → a LinkedIn version). Variants stay connected as a
+  set (shown in the Meta tab, jump between them), so one idea can travel across
+  LinkedIn, Medium and Toastmasters without copy-paste juggling.
 - **Publish-ready export** (⤴ button) — converts a draft to what each platform
   actually accepts: **LinkedIn** (Markdown bold → Unicode bold that survives, links
   pulled into a ready-to-paste *first comment*), **Medium** (clean Markdown), **Plain

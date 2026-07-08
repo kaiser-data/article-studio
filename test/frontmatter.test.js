@@ -13,7 +13,7 @@ check("all fields survive a full round-trip", () => {
   const article = {
     id: "a123", title: "Hello: a Test", platform: "linkedin", status: "ready",
     tags: ["toastmasters", "it"], summary: "A summary, with a comma",
-    publishDate: "2026-07-15",
+    publishDate: "2026-07-15", group: "g_abc123",
     images: [
       { name: "a.jpg", path: "images/a.jpg", people: ["Jane Doe", "Bob"] },
       { name: "b.png", path: "images/b.png" }
@@ -28,6 +28,7 @@ check("all fields survive a full round-trip", () => {
   assert.strictEqual(parsed.status, article.status, "status");
   assert.strictEqual(parsed.summary, article.summary, "summary (with comma)");
   assert.strictEqual(parsed.publishDate, article.publishDate, "publishDate");
+  assert.strictEqual(parsed.group, article.group, "group (variant link)");
   assert.strictEqual(parsed.id, article.id, "id");
   assert.strictEqual(parsed.created, article.created, "created");
   assert.deepStrictEqual(parsed.tags, article.tags, "tags");

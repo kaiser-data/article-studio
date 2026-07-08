@@ -36,6 +36,7 @@
       `tags: [${(a.tags || []).map(t => escYaml(t)).join(", ")}]`,
       `summary: ${escYaml(a.summary || "")}`,
       `publishDate: ${a.publishDate || ""}`,
+      `group: ${a.group || ""}`,
       `images: [${(a.images || []).map(im => escYaml(im.path || im.name || im)).join(", ")}]`,
       `imageTags: [${(a.images || []).filter(im => im && im.people && im.people.length).map(im => escYaml(`${im.path || im.name} :: ${im.people.join("; ")}`)).join(", ")}]`,
       `created: ${a.created || nowISO()}`,
@@ -49,7 +50,7 @@
 
   function parseFrontmatter(text, fallbackId) {
     const m = text.match(/^---\n([\s\S]*?)\n---\n?/);
-    const a = { id: fallbackId || uid(), title: "Untitled", platform: "blog", status: "drafting", tags: [], summary: "", publishDate: "", images: [], created: nowISO(), updated: nowISO(), body: text };
+    const a = { id: fallbackId || uid(), title: "Untitled", platform: "blog", status: "drafting", tags: [], summary: "", publishDate: "", group: "", images: [], created: nowISO(), updated: nowISO(), body: text };
     if (!m) { a.body = text; return a; }
     a.body = text.slice(m[0].length);
     for (const line of m[1].split("\n")) {
@@ -63,7 +64,7 @@
         if (key === "tags") a.tags = arr;
         else if (key === "images") a.images = arr.map(p => ({ name: p.split("/").pop(), path: p }));
         else a._imageTags = arr;   // "path :: Name; Name" — mapped onto images below
-      } else if (["title", "platform", "status", "summary", "publishDate", "created", "updated", "id"].includes(key)) {
+      } else if (["title", "platform", "status", "summary", "publishDate", "group", "created", "updated", "id"].includes(key)) {
         a[key] = unesc(val);
       }
     }
