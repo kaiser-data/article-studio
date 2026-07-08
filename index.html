@@ -280,6 +280,15 @@
   .export-out.sm { min-height: 90px; margin-top: 4px; font-size: 12.5px; }
   .export-sub { font-size: 11px; text-transform: uppercase; letter-spacing: .5px; color: var(--text-dim2); font-weight: 700; margin: 12px 0 2px; }
 
+  /* template picker */
+  .tpl-modal { width: 640px; max-width: 96vw; }
+  .tpl-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  .tpl-card { text-align: left; background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 13px 14px; display: flex; flex-direction: column; gap: 6px; transition: .12s; }
+  .tpl-card:hover { border-color: var(--accent); transform: translateY(-1px); }
+  .tpl-label { font-size: 13px; font-weight: 700; color: var(--text); }
+  .tpl-desc { font-size: 12px; color: var(--text-dim); flex: 1; line-height: 1.4; }
+  .tpl-card .pill { align-self: flex-start; }
+
   /* pre-publish checklist */
   .chk-panel { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 11px 12px; margin-bottom: 16px; }
   .chk-head { display: flex; align-items: center; justify-content: space-between; font-size: 12px; font-weight: 700; color: var(--text); }
@@ -470,6 +479,7 @@
       <button class="btn" id="exportJsonBtn">⬇ Export backup (.json)</button>
       <button class="btn" id="importJsonBtn">⬆ Import backup (.json)</button>
       <button class="btn" id="syncAllBtn">💾 Save all to folder (.md)</button>
+      <button class="btn" id="voiceBtn">🎙 Voice guide (agents read this)</button>
       <button class="btn ghost" id="helpBtn">？ How the agent bridge works</button>
     </div>
     <div class="row">
@@ -493,6 +503,35 @@
     </div>
     <div class="cal-body" id="calBody"></div>
     <div class="cal-upcoming" id="calUpcoming"></div>
+  </div>
+</div>
+
+<!-- voice guide modal -->
+<div class="modal-bg" id="voiceModal">
+  <div class="modal export-modal">
+    <div class="cal-head">
+      <h3 style="margin:0">🎙 Voice guide</h3>
+      <span style="flex:1"></span>
+      <button class="btn ghost sm" id="voiceClose">✕</button>
+    </div>
+    <div class="export-hint">Your voice, rules, and no-gos in one place. When you run Codex/Claude on a draft, this is prepended to every prompt — so polishing sharpens your draft without flattening your style. Saved to <code>articles/voice.md</code>.</div>
+    <textarea class="export-out" id="voiceOut" spellcheck="false" placeholder="e.g.&#10;- Direct, warm, a little dry humor. Short sentences.&#10;- German-native writing English; keep it natural, avoid stiff textbook phrasing.&#10;- Lead with the result, never 'In this article…'.&#10;- Toastmasters posts: encouraging, member-to-member.&#10;- Never invent facts, stats, or event details.&#10;- Avoid buzzword soup and em-dash overuse."></textarea>
+    <div class="row" style="margin-top:12px">
+      <button class="btn ghost" id="voiceCancel">Close</button>
+      <button class="btn primary" id="voiceSave">Save voice guide</button>
+    </div>
+  </div>
+</div>
+
+<!-- template picker modal -->
+<div class="modal-bg" id="tplModal">
+  <div class="modal tpl-modal">
+    <div class="cal-head">
+      <h3 style="margin:0">Start a new article</h3>
+      <span style="flex:1"></span>
+      <button class="btn ghost sm" id="tplClose">✕</button>
+    </div>
+    <div class="tpl-grid" id="tplGrid"></div>
   </div>
 </div>
 
@@ -679,6 +718,7 @@ function loadLocal() {
   } catch (e) {}
   if (!state.articles) state.articles = [];
   if (!state.people) state.people = [];
+  if (typeof state.voice !== "string") state.voice = "";
 }
 
 /* ---------------- IndexedDB (image blobs, browser-only fallback) ---------------- */
@@ -806,13 +846,34 @@ async function loadPeopleFile() {
 }
 function savePeople() { saveLocal(); writePeopleFile(); }
 
+/* voice guide — mirrored to articles/voice.md so the agents always read your style */
+async function writeVoiceFile() {
+  if (!dirHandle) return;
+  try {
+    const fh = await dirHandle.getFileHandle("voice.md", { create: true });
+    const w = await fh.createWritable();
+    await w.write(state.voice || "");
+    await w.close();
+  } catch (e) { /* non-fatal */ }
+}
+async function loadVoiceFile() {
+  if (!dirHandle) return;
+  try {
+    const fh = await dirHandle.getFileHandle("voice.md");
+    state.voice = await (await fh.getFile()).text();
+  } catch (e) { /* no file yet */ }
+}
+function saveVoice() { saveLocal(); writeVoiceFile(); }
+
 async function importFromFolder(opts = {}) {
   if (!dirHandle) return;
   await loadPeopleFile();
+  await loadVoiceFile();
   // collect handles, then read all files in parallel (fast even with hundreds of files)
   const handles = [];
   for await (const [name, handle] of dirHandle.entries()) {
-    if (handle.kind === "file" && name.endsWith(".md") && name.toLowerCase() !== "readme.md") handles.push([name, handle]);
+    const lower = name.toLowerCase();
+    if (handle.kind === "file" && name.endsWith(".md") && lower !== "readme.md" && lower !== "voice.md") handles.push([name, handle]);
   }
   const found = (await Promise.all(handles.map(async ([name, handle]) => {
     try {
@@ -910,10 +971,12 @@ async function resolveImageSrc(im) {
 }
 
 /* ---------------- CRUD ---------------- */
-function newArticle() {
+function newArticle(tpl) {
+  const platform = (tpl && tpl.platform) || (filterPlatform !== "all" ? filterPlatform : "linkedin");
   const a = {
-    id: uid(), title: "", platform: filterPlatform !== "all" ? filterPlatform : "linkedin",
-    status: "idea", tags: [], summary: "", publishDate: "", images: [], body: "",
+    id: uid(), title: (tpl && tpl.title) || "", platform,
+    status: "idea", tags: (tpl && tpl.tags) ? tpl.tags.slice() : [], summary: "", publishDate: "",
+    images: [], body: (tpl && tpl.body) || "",
     created: nowISO(), updated: nowISO()
   };
   state.articles.unshift(a);
@@ -923,6 +986,53 @@ function newArticle() {
   openEditor();
   $("#edTitle").focus();
   scheduleSave();
+}
+
+/* ---------------- templates ---------------- */
+const TEMPLATES = [
+  { id: "blank", label: "Blank", platform: null, desc: "Empty draft", body: "" },
+  {
+    id: "li-story", label: "LinkedIn · Hook–Story–CTA", platform: "linkedin",
+    desc: "Personal story that lands a lesson", tags: ["toastmasters"],
+    body: "[One-line hook: a result, a tension, or a bold claim — this shows before 'see more']\n\n[Set the scene in 2–3 short lines. What happened?]\n\n[The turn — what changed / what you learned.]\n\nHere's what stuck with me:\n▸ [Lesson one]\n▸ [Lesson two]\n▸ [Lesson three]\n\n[One-line takeaway.]\n\n[Question to the reader to spark comments?]\n\n#Toastmasters #PublicSpeaking #IT"
+  },
+  {
+    id: "li-howto", label: "LinkedIn · IT how-to", platform: "linkedin",
+    desc: "Practical tip your peers can use", tags: ["it"],
+    body: "[Problem in one line — the pain your reader feels.]\n\nMost people [common mistake]. Here's the approach that works:\n\n▸ [Step / principle 1]\n▸ [Step / principle 2]\n▸ [Step / principle 3]\n\n[Why it matters / the payoff.]\n\n[What would you add?]\n\n#IT #DevOps #Engineering"
+  },
+  {
+    id: "medium", label: "Medium · Long-form", platform: "medium",
+    desc: "~7-min structured article", tags: [],
+    body: "# [Title: clear + benefit-driven]\n\n> [Kicker / subtitle — one sentence that earns the read.]\n\n[Open with a concrete scene or claim. Not 'In this article I will…'.]\n\n## [The problem]\n\n[Set up the tension.]\n\n## [What I did / the idea]\n\n[Body. Subhead every 200–300 words.]\n\n## Takeaways\n\n- [Point 1]\n- [Point 2]\n- [Point 3]\n\n[Soft CTA: follow / subscribe.]"
+  },
+  {
+    id: "luma", label: "Luma · Event page", platform: "luma",
+    desc: "Event description + agenda", tags: [],
+    body: "[Event title = what + value, e.g. 'Hands-on Kubernetes Night — ship your first deploy']\n\n[One line: who it's for and what they'll leave with.]\n\n## What you'll get\n\n- [Benefit 1]\n- [Benefit 2]\n- [Benefit 3]\n\n## Agenda\n\n- 18:00 — [Arrive & network]\n- 19:00 — [Main session]\n- 20:00 — [Wrap-up]\n\n## Hosts\n\n- [Name — one-line credibility]\n\n📍 [Location]  ·  📅 [Date]  ·  🕕 [Time]\n[RSVP call to action]"
+  },
+  {
+    id: "tm", label: "Toastmasters · Newsletter", platform: "toastmasters",
+    desc: "Encouraging member piece", tags: ["toastmasters"],
+    body: "[Open with a club moment or personal story.]\n\n[The body — what happened, what it taught you. Warm, member-to-member.]\n\n3 things to try at the next meeting:\n1. [Takeaway 1]\n2. [Takeaway 2]\n3. [Takeaway 3]\n\n[Tie back to Pathways / a role / an upcoming contest.]\n\n[Invitation: come to a meeting, take a role, bring a guest.]"
+  }
+];
+function openTemplateModal() { $("#tplModal").classList.add("show"); renderTemplates(); }
+function closeTemplateModal() { $("#tplModal").classList.remove("show"); }
+function renderTemplates() {
+  $("#tplGrid").innerHTML = TEMPLATES.map(t => {
+    const p = t.platform ? (PLATFORMS[t.platform] || PLATFORMS.blog) : null;
+    return `<button class="tpl-card" data-tpl="${t.id}">
+      <div class="tpl-label">${esc(t.label)}</div>
+      <div class="tpl-desc">${esc(t.desc)}</div>
+      ${p ? `<span class="pill" style="border-color:${p.color};color:${p.color}">${p.label}</span>` : `<span class="pill" style="border-color:var(--line-2);color:var(--text-dim2)">Empty</span>`}
+    </button>`;
+  }).join("");
+  $$("#tplGrid .tpl-card").forEach(c => c.onclick = () => {
+    const t = TEMPLATES.find(x => x.id === c.dataset.tpl);
+    closeTemplateModal();
+    newArticle(t && t.id === "blank" ? null : t);
+  });
 }
 
 function deleteCurrent() {
@@ -2009,7 +2119,9 @@ $("#reloadBtn").onclick = () => {
 };
 $("#keepMine").onclick = () => resolveConflict("mine");
 $("#loadTheirs").onclick = () => resolveConflict("theirs");
-$("#newBtn").onclick = newArticle;
+$("#newBtn").onclick = openTemplateModal;
+$("#tplClose").onclick = closeTemplateModal;
+$("#tplModal").onclick = e => { if (e.target.id === "tplModal") closeTemplateModal(); };
 $("#exportBtn").onclick = openExport;
 $("#exportClose").onclick = closeExport;
 $("#exportModal").onclick = e => { if (e.target.id === "exportModal") closeExport(); };
@@ -2034,6 +2146,16 @@ $("#menuBtn").onclick = () => $("#menuModal").classList.add("show");
 $("#closeMenu").onclick = closeMenu;
 $("#menuModal").onclick = e => { if (e.target.id === "menuModal") closeMenu(); };
 
+$("#voiceBtn").onclick = () => { closeMenu(); $("#voiceOut").value = state.voice || ""; $("#voiceModal").classList.add("show"); };
+$("#voiceClose").onclick = () => $("#voiceModal").classList.remove("show");
+$("#voiceCancel").onclick = () => $("#voiceModal").classList.remove("show");
+$("#voiceModal").onclick = e => { if (e.target.id === "voiceModal") $("#voiceModal").classList.remove("show"); };
+$("#voiceSave").onclick = () => {
+  state.voice = $("#voiceOut").value;
+  saveVoice();
+  $("#voiceModal").classList.remove("show");
+  toast(dirHandle ? "Voice guide saved → articles/voice.md" : "Voice guide saved locally.", "good");
+};
 $("#exportJsonBtn").onclick = exportJson;
 $("#importJsonBtn").onclick = () => $("#jsonFile").click();
 $("#jsonFile").onchange = e => { if (e.target.files[0]) importJson(e.target.files[0]); };

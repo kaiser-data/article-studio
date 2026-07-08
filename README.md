@@ -64,6 +64,12 @@ The app and your coding agent edit the **same files**:
 
 ## Features
 
+- **Templates** — "+ New article" opens a picker with ready-made skeletons
+  (LinkedIn hook-story-CTA / IT how-to, Medium long-form, Luma event, Toastmasters
+  newsletter) that pre-fill structure, platform, and tags. ⌘N still makes a blank.
+- **Voice guide** (⋯ menu) — your style, rules, and no-gos in one place, saved to
+  `articles/voice.md`. The backend prepends it to every Codex/Claude prompt, so
+  polishing sharpens your draft without flattening your voice.
 - **Pipeline board** — Idea → Drafting → Ready → Posted, filtered by platform.
 - **Content calendar & scheduling** — give each article a `publishDate` (Meta tab),
   see a full month calendar (📅 button) with posts colored by platform, plus

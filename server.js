@@ -101,7 +101,13 @@ async function handleRun(req, res) {
   fs.mkdirSync(ARTICLES_DIR, { recursive: true });
   fs.writeFileSync(articlePath, FM.toFrontmatter({ ...article, file: fileName }), "utf8");
 
+  // The author's voice guide (articles/voice.md), if present, is prepended so
+  // polishing keeps their style instead of flattening it.
+  let voice = "";
+  try { voice = fs.readFileSync(path.join(ARTICLES_DIR, "voice.md"), "utf8").trim(); } catch (e) {}
+
   const fullPrompt = [
+    voice ? "Author's voice guide — follow it closely:\n" + voice + "\n" : "",
     prompt,
     "",
     `You are ${engine.label}, running from Article Studio's local backend.`,
@@ -111,6 +117,7 @@ async function handleRun(req, res) {
     "- Preserve YAML front matter keys.",
     "- Preserve facts and do not invent event details.",
     "- Keep image links as relative paths.",
+    "- Match the author's voice guide above.",
     "- Make the requested edit, then finish with a short summary.",
     "- Do not modify unrelated files."
   ].join("\n");
