@@ -95,13 +95,27 @@ The app and your coding agent edit the **same files**:
 
 ```
 article_publisher/
-├── index.html              # the app
-├── server.js               # local backend for static files + codex exec
-├── serve.command           # macOS launcher
-├── articles/               # ← connect this folder
+├── index.html              # the app (UI)
+├── server.js               # local backend: static files + /api/run (codex / claude)
+├── shared/frontmatter.js   # article <-> Markdown schema, shared by app + backend
+├── serve.command           # macOS launcher (starts backend, opens Chrome)
+├── package.json            # npm start / npm test
+├── test/frontmatter.test.js
+├── articles/               # ← connect this folder (drafts stay local, git-ignored)
 │   ├── welcome-linkedin-post.md
 │   └── images/
 └── README.md
+```
+
+## Development
+
+`shared/frontmatter.js` is the single source of truth for how an article maps to
+its Markdown file — imported by both `index.html` (in the browser) and `server.js`
+(in Node), so the two can't drift and drop fields.
+
+```
+npm start     # run the backend at http://localhost:8765
+npm test      # front-matter round-trip test
 ```
 
 ## Browser note

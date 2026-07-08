@@ -3,6 +3,7 @@ const http = require("http");
 const fs = require("fs");
 const path = require("path");
 const { spawn, spawnSync } = require("child_process");
+const FM = require("./shared/frontmatter.js");   // single source of truth for article <-> Markdown
 
 const ROOT = __dirname;
 const ARTICLES_DIR = path.join(ROOT, "articles");
@@ -49,9 +50,22 @@ const MIME = {
   ".svg": "image/svg+xml"
 };
 
+// Only allow localhost Host + Origin. Blocks a malicious webpage from POSTing to
+// our /api on 127.0.0.1 (browser CSRF / DNS-rebinding) to run the agents.
+function localOnly(req) {
+  const host = req.headers.host || "";
+  const hostOk = /^(127\.0\.0\.1|localhost|\[::1\])(:\d+)?$/.test(host);
+  const origin = req.headers.origin;
+  const originOk = !origin || /^https?:\/\/(127\.0\.0\.1|localhost|\[::1\])(:\d+)?$/.test(origin);
+  return hostOk && originOk;
+}
+
 const server = http.createServer(async (req, res) => {
   try {
     const url = new URL(req.url, `http://${req.headers.host || "localhost"}`);
+    if (url.pathname.startsWith("/api/") && !localOnly(req)) {
+      return sendJson(res, 403, { error: "Cross-origin request blocked." });
+    }
     if (req.method === "GET" && url.pathname === "/api/health") return sendJson(res, 200, {
       ok: true,
       codex: engineAvailable("codex"),
@@ -81,11 +95,11 @@ async function handleRun(req, res) {
 
   const article = payload.article || {};
   const prompt = payload.prompt || "";
-  const fileName = safeArticleFile(article.file || article._file || `${slugify(article.title)}.md`);
+  const fileName = safeArticleFile(article.file || article._file || `${FM.slugify(article.title)}.md`);
   const articlePath = path.join(ARTICLES_DIR, fileName);
 
   fs.mkdirSync(ARTICLES_DIR, { recursive: true });
-  fs.writeFileSync(articlePath, toFrontmatter({ ...article, file: fileName }), "utf8");
+  fs.writeFileSync(articlePath, FM.toFrontmatter({ ...article, file: fileName }), "utf8");
 
   const fullPrompt = [
     prompt,
@@ -102,7 +116,7 @@ async function handleRun(req, res) {
   ].join("\n");
 
   const run = await runEngine(engineKey, fullPrompt);
-  const updated = parseFrontmatter(fs.readFileSync(articlePath, "utf8"), article.id);
+  const updated = FM.parseFrontmatter(fs.readFileSync(articlePath, "utf8"), article.id);
   updated._file = fileName;
 
   sendJson(res, 200, {
@@ -153,60 +167,6 @@ function engineAvailable(engineKey) {
   return !check.error && check.status === 0;
 }
 
-function toFrontmatter(a) {
-  const fm = [
-    "---",
-    `title: ${escYaml(a.title || "Untitled")}`,
-    `platform: ${a.platform || "blog"}`,
-    `status: ${a.status || "drafting"}`,
-    `tags: [${(a.tags || []).map(t => escYaml(t)).join(", ")}]`,
-    `summary: ${escYaml(a.summary || "")}`,
-    `publishDate: ${a.publishDate || ""}`,
-    `images: [${(a.images || []).map(im => escYaml(im.path || im.name || im)).join(", ")}]`,
-    `imageTags: [${(a.images || []).filter(im => im && im.people && im.people.length).map(im => escYaml(`${im.path || im.name} :: ${im.people.join("; ")}`)).join(", ")}]`,
-    `created: ${a.created || new Date().toISOString()}`,
-    `updated: ${new Date().toISOString()}`,
-    `id: ${a.id || uid()}`,
-    "---",
-    ""
-  ].join("\n");
-  return fm + (a.body || "");
-}
-
-function parseFrontmatter(text, fallbackId) {
-  const m = text.match(/^---\n([\s\S]*?)\n---\n?/);
-  const a = { id: fallbackId || uid(), title: "Untitled", platform: "blog", status: "drafting", tags: [], summary: "", images: [], body: text };
-  if (!m) return a;
-  a.body = text.slice(m[0].length);
-  for (const line of m[1].split("\n")) {
-    const idx = line.indexOf(":");
-    if (idx < 0) continue;
-    const key = line.slice(0, idx).trim();
-    let val = line.slice(idx + 1).trim();
-    if (key === "tags" || key === "images" || key === "imageTags") {
-      val = val.replace(/^\[|\]$/g, "").trim();
-      const arr = val ? val.split(",").map(s => unesc(s.trim())).filter(Boolean) : [];
-      if (key === "tags") a.tags = arr;
-      else if (key === "images") a.images = arr.map(p => ({ name: p.split("/").pop(), path: p }));
-      else a._imageTags = arr;
-    } else if (["title", "platform", "status", "summary", "publishDate", "created", "updated", "id"].includes(key)) {
-      a[key] = unesc(val);
-    }
-  }
-  if (a._imageTags) {
-    for (const entry of a._imageTags) {
-      const sep = entry.indexOf(" :: ");
-      if (sep < 0) continue;
-      const ref = entry.slice(0, sep).trim();
-      const names = entry.slice(sep + 4).split(";").map(s => s.trim()).filter(Boolean);
-      const img = (a.images || []).find(im => (im.path || im.name) === ref);
-      if (img) img.people = names;
-    }
-    delete a._imageTags;
-  }
-  return a;
-}
-
 function serveStatic(req, res, pathname) {
   const clean = decodeURIComponent(pathname === "/" ? "/index.html" : pathname);
   const target = path.normalize(path.join(ROOT, clean));
@@ -241,27 +201,6 @@ function safeArticleFile(name) {
   const base = path.basename(name || "untitled.md");
   const clean = base.replace(/[^\w.\-]/g, "-");
   return clean.endsWith(".md") ? clean : `${clean}.md`;
-}
-
-function slugify(s) {
-  return (s || "untitled").toLowerCase().replace(/[^\w\s-]/g, "").trim().replace(/\s+/g, "-").slice(0, 60) || "untitled";
-}
-
-function escYaml(s) {
-  s = (s == null ? "" : String(s));
-  if (/[:#\[\]{}",]|^\s|\s$/.test(s)) return JSON.stringify(s);
-  return s;
-}
-
-function unesc(s) {
-  if (s.startsWith('"') && s.endsWith('"')) {
-    try { return JSON.parse(s); } catch (e) {}
-  }
-  return s;
-}
-
-function uid() {
-  return "a" + Math.random().toString(36).slice(2, 9);
 }
 
 function sendJson(res, status, body) {

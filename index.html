@@ -472,9 +472,10 @@
 
 <input type="file" id="jsonFile" accept="application/json" style="display:none" />
 
+<script src="shared/frontmatter.js"></script>
 <script>
 /* ============================================================
-   Article Studio — single-file content desk
+   Article Studio — content desk (served over http://localhost)
    Bridge to coding agents = Markdown files in a chosen folder
    ============================================================ */
 
@@ -604,11 +605,8 @@ let saveTimer = null;
 const LS_KEY = "articleStudio.v1";
 const $ = sel => document.querySelector(sel);
 const $$ = sel => [...document.querySelectorAll(sel)];
-const uid = () => "a" + Math.random().toString(36).slice(2, 9);
-const nowISO = () => new Date().toISOString();
-function slugify(s) {
-  return (s || "untitled").toLowerCase().replace(/[^\w\s-]/g, "").trim().replace(/\s+/g, "-").slice(0, 60) || "untitled";
-}
+// article <-> Markdown serialization is shared with the backend (shared/frontmatter.js)
+const { uid, nowISO, slugify, escYaml, unesc, toFrontmatter, parseFrontmatter } = window.Frontmatter;
 function current() { return state.articles.find(a => a.id === currentId); }
 
 /* ---------------- persistence (localStorage) ---------------- */
@@ -706,70 +704,12 @@ function revokeImageUrl(im) {
   if (k && urlCache.has(k)) { URL.revokeObjectURL(urlCache.get(k)); urlCache.delete(k); }
 }
 
-/* ---------------- markdown <-> file ---------------- */
-function toFrontmatter(a) {
-  const fm = [
-    "---",
-    `title: ${escYaml(a.title)}`,
-    `platform: ${a.platform}`,
-    `status: ${a.status}`,
-    `tags: [${(a.tags || []).map(t => escYaml(t)).join(", ")}]`,
-    `summary: ${escYaml(a.summary || "")}`,
-    `publishDate: ${a.publishDate || ""}`,
-    `images: [${(a.images || []).map(im => escYaml(im.path || im.name)).join(", ")}]`,
-    `imageTags: [${(a.images || []).filter(im => im.people && im.people.length).map(im => escYaml(`${im.path || im.name} :: ${im.people.join("; ")}`)).join(", ")}]`,
-    `created: ${a.created}`,
-    `updated: ${a.updated}`,
-    `id: ${a.id}`,
-    "---",
-    ""
-  ].join("\n");
-  return fm + (a.body || "");
-}
-function escYaml(s) {
-  s = (s == null ? "" : String(s));
-  if (/[:#\[\]{}",]|^\s|\s$/.test(s)) return JSON.stringify(s);
-  return s;
-}
-function parseFrontmatter(text, fallbackId) {
-  const m = text.match(/^---\n([\s\S]*?)\n---\n?/);
-  const a = { id: fallbackId, title: "Untitled", platform: "linkedin", status: "drafting", tags: [], summary: "", publishDate: "", images: [], created: nowISO(), updated: nowISO(), body: text };
-  if (!m) { a.body = text; return a; }
-  a.body = text.slice(m[0].length);
-  const lines = m[1].split("\n");
-  for (const line of lines) {
-    const idx = line.indexOf(":");
-    if (idx < 0) continue;
-    const key = line.slice(0, idx).trim();
-    let val = line.slice(idx + 1).trim();
-    if (key === "tags" || key === "images" || key === "imageTags") {
-      val = val.replace(/^\[|\]$/g, "").trim();
-      const arr = val ? val.split(",").map(s => unesc(s.trim())).filter(Boolean) : [];
-      if (key === "tags") a.tags = arr;
-      else if (key === "images") a.images = arr.map(p => ({ name: p.split("/").pop(), path: p }));
-      else a._imageTags = arr;   // "path :: Name; Name" entries, mapped onto images below
-    } else if (a.hasOwnProperty(key) || ["title","platform","status","summary","publishDate","created","updated","id"].includes(key)) {
-      a[key] = unesc(val);
-    }
-  }
-  // attach per-photo people tags back onto their image objects
-  if (a._imageTags) {
-    for (const entry of a._imageTags) {
-      const sep = entry.indexOf(" :: ");
-      if (sep < 0) continue;
-      const ref = entry.slice(0, sep).trim();
-      const names = entry.slice(sep + 4).split(";").map(s => s.trim()).filter(Boolean);
-      const img = a.images.find(im => (im.path || im.name) === ref);
-      if (img) img.people = names;
-    }
-    delete a._imageTags;
-  }
+/* markdown <-> file serialization lives in shared/frontmatter.js (see destructure above).
+   parseArticle() wraps the shared parser to normalize unknown platforms for the UI. */
+function parseArticle(text, fallbackId) {
+  const a = parseFrontmatter(text, fallbackId);
   if (!PLATFORMS[a.platform]) a.platform = "blog";
   return a;
-}
-function unesc(s) {
-  if (s.startsWith('"') && s.endsWith('"')) { try { return JSON.parse(s); } catch (e) {} }
-  return s;
 }
 
 /* ---------------- folder bridge (File System Access API) ---------------- */
@@ -828,7 +768,7 @@ async function importFromFolder(opts = {}) {
   const found = (await Promise.all(handles.map(async ([name, handle]) => {
     try {
       const file = await handle.getFile();
-      const a = parseFrontmatter(await file.text(), uid());
+      const a = parseArticle(await file.text(), uid());
       a._file = name;
       a._mtime = file.lastModified;
       return a;
@@ -1000,7 +940,7 @@ async function resolveConflict(mode) {
     try {
       const fh = await dirHandle.getFileHandle(a._file);
       const file = await fh.getFile();
-      const fresh = parseFrontmatter(await file.text(), a.id);
+      const fresh = parseArticle(await file.text(), a.id);
       Object.assign(a, fresh, { _file: a._file, _mtime: file.lastModified, _conflict: false, _dirty: false });
       toast("Loaded the file's version.", "good");
     } catch (e) { toast("Couldn't read file: " + e.message, "bad"); }

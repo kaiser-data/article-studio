@@ -13,14 +13,14 @@ fi
 # Server belegt ist, automatisch auf den nächsten Port ausweichen.
 STARTED=0
 for CANDIDATE in "$PORT" 8766 8767 8768; do
-  if curl -s -o /dev/null "http://127.0.0.1:$CANDIDATE/api/health"; then
+  if curl -s "http://127.0.0.1:$CANDIDATE/api/health" 2>/dev/null | grep -q '"ok"'; then
     PORT="$CANDIDATE"
     STARTED=1
     break
   fi
   PORT="$CANDIDATE" node server.js >/tmp/article-studio-server-$CANDIDATE.log 2>&1 &
   sleep 1
-  if curl -s -o /dev/null "http://127.0.0.1:$CANDIDATE/api/health"; then
+  if curl -s "http://127.0.0.1:$CANDIDATE/api/health" 2>/dev/null | grep -q '"ok"'; then
     PORT="$CANDIDATE"
     STARTED=1
     break

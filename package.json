@@ -1,0 +1,15 @@
+{
+  "name": "article-studio",
+  "version": "1.0.0",
+  "description": "Single-file writing desk for planning, drafting and publishing articles (LinkedIn, Medium, Toastmasters, Luma), wired to Claude Code / Codex via Markdown files.",
+  "private": true,
+  "type": "commonjs",
+  "scripts": {
+    "start": "node server.js",
+    "test": "node test/frontmatter.test.js"
+  },
+  "engines": {
+    "node": ">=16"
+  },
+  "license": "MIT"
+}
