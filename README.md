@@ -49,15 +49,14 @@ The app and your coding agent edit the **same files**:
    ```
 
 3. Open the **Agents** tab in the inspector and choose **Codex** or
-   **Claude Code** as the handoff target.
-4. Copy a task prompt or save a task note:
-   - Codex notes go into `articles/.codex-tasks/`.
-   - Claude Code notes go into `articles/.claude-tasks/`.
-5. Ask the selected agent to work on them, e.g.:
+   **Claude Code** as the target.
+4. Pick a task (polish, hook, repurpose, alt text, risk review), then either hit
+   **Run** (executes the local CLI via the backend) or **Copy prompt** and paste it
+   into your own agent session, e.g.:
    - *"Tighten the hook on `articles/welcome-linkedin-post.md` and keep it under 1300 chars."*
    - *"Turn the Medium draft into a Toastmasters newsletter version."*
    - *"Draft 3 LinkedIn post ideas about Kubernetes and drop them in `articles/` as new files."*
-6. Back in the app, hit **↻ Reload** to pull edits in.
+5. Back in the app, hit **↻ Reload** to pull edits in.
 
 > Tip: After agent edits files here, this project's convention is to run
 > `graphify update .` if you keep a knowledge graph — not required for the app.
@@ -95,8 +94,8 @@ The app and your coding agent edit the **same files**:
   (merged and de-duplicated). Stored in `articles/tagsets.json` (shared with the
   agents), so your LinkedIn hashtag bundles stay consistent across posts.
 - **Agent handoff** — choose Codex or Claude Code, generate task prompts for
-  polishing, hook rewrites, repurposing, alt text, or risk review; copy them or
-  save task notes under `articles/.codex-tasks/` or `articles/.claude-tasks/`.
+  polishing, hook rewrites, repurposing, alt text, or risk review; run them
+  directly through the backend or copy them into any agent session.
 - **Alt-text generation** — the **Alt text** agent task lists every image in the
   article (with its tagged people) and has the agent *open and look at* each file,
   then write concise, descriptive alt text straight into the `![alt](path)`

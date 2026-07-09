@@ -71,8 +71,7 @@ const server = http.createServer(async (req, res) => {
       codex: engineAvailable("codex"),
       claude: engineAvailable("claude")
     });
-    // /api/run is the unified endpoint; /api/codex kept as a backward-compatible alias
-    if (req.method === "POST" && (url.pathname === "/api/run" || url.pathname === "/api/codex")) return handleRun(req, res);
+    if (req.method === "POST" && url.pathname === "/api/run") return handleRun(req, res);
     if (req.method !== "GET" && req.method !== "HEAD") return sendText(res, 405, "Method not allowed");
     return serveStatic(req, res, url.pathname);
   } catch (err) {
@@ -81,7 +80,7 @@ const server = http.createServer(async (req, res) => {
 });
 
 server.listen(PORT, "127.0.0.1", () => {
-  console.log(`Article Studio Codex backend running at http://127.0.0.1:${PORT}/index.html`);
+  console.log(`Article Studio agent backend running at http://127.0.0.1:${PORT}/index.html`);
 });
 
 async function handleRun(req, res) {

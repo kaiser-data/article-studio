@@ -321,35 +321,35 @@
   .chk-fix { font-size: 10px; font-weight: 700; padding: 1px 6px; margin-left: 3px; border-radius: 8px; border: 1px solid var(--accent); background: transparent; color: var(--accent); cursor: pointer; white-space: nowrap; }
   .chk-fix:hover { background: var(--accent); color: #fff; }
 
-  /* codex tab */
-  .codex-panel { display: flex; flex-direction: column; gap: 12px; }
-  .codex-presets { display: grid; grid-template-columns: 1fr 1fr; gap: 7px; }
-  .codex-preset {
+  /* agents tab */
+  .agent-panel { display: flex; flex-direction: column; gap: 12px; }
+  .agent-presets { display: grid; grid-template-columns: 1fr 1fr; gap: 7px; }
+  .agent-preset {
     background: var(--panel); border: 1px solid var(--line); color: var(--text-dim);
     border-radius: 7px; padding: 8px 7px; font-size: 12px; font-weight: 600;
   }
-  .codex-preset:hover, .codex-preset.active { border-color: var(--accent); color: var(--text); background: var(--panel-2); }
+  .agent-preset:hover, .agent-preset.active { border-color: var(--accent); color: var(--text); background: var(--panel-2); }
   .prompt-box {
     width: 100%; min-height: 220px; resize: vertical; background: var(--panel);
     border: 1px solid var(--line); border-radius: 8px; color: var(--text);
     padding: 10px; font: 12px/1.55 var(--mono);
   }
   .prompt-box:focus { outline: none; border-color: var(--accent); }
-  .codex-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
-  .codex-note { font-size: 12px; color: var(--text-dim2); line-height: 1.5; }
-  .codex-status {
+  .agent-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+  .agent-note { font-size: 12px; color: var(--text-dim2); line-height: 1.5; }
+  .agent-status {
     display: flex; align-items: center; gap: 8px; font-size: 12px; color: var(--text-dim);
     background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 8px 9px;
   }
-  .codex-status .led { width: 8px; height: 8px; border-radius: 50%; background: var(--text-dim2); flex: 0 0 auto; }
-  .codex-status.good .led { background: var(--ready); box-shadow: 0 0 8px var(--ready); }
-  .codex-status.warn .led { background: var(--draft); box-shadow: 0 0 8px var(--draft); }
-  .codex-result {
+  .agent-status .led { width: 8px; height: 8px; border-radius: 50%; background: var(--text-dim2); flex: 0 0 auto; }
+  .agent-status.good .led { background: var(--ready); box-shadow: 0 0 8px var(--ready); }
+  .agent-status.warn .led { background: var(--draft); box-shadow: 0 0 8px var(--draft); }
+  .agent-result {
     background: var(--panel); border: 1px solid var(--line); border-radius: 8px;
     padding: 9px; color: var(--text-dim); font-size: 12px; line-height: 1.5;
   }
-  .codex-result b { color: var(--text); }
-  .codex-result pre {
+  .agent-result b { color: var(--text); }
+  .agent-result pre {
     max-height: 180px; overflow: auto; white-space: pre-wrap; margin: 8px 0 0;
     color: var(--text); font: 12px/1.5 var(--mono);
   }
@@ -477,7 +477,7 @@
         <button data-tab="images">Images</button>
         <button data-tab="meta">Meta</button>
         <button data-tab="people">People</button>
-        <button data-tab="codex">Agents</button>
+        <button data-tab="agents">Agents</button>
       </div>
       <div class="insp-body" id="inspBody"></div>
     </aside>
@@ -707,11 +707,10 @@ let state = { articles: [], people: [] };
 let currentId = null;
 let dirHandle = null;          // FileSystemDirectoryHandle (folder bridge)
 let imagesDirHandle = null;
-let taskNotesDirHandle = null;
 let view = "write";
 let inspTab = "tips";
 let agentTarget = "codex";
-let codexTask = "polish";
+let agentTask = "polish";
 let backendStatus = { checked: false, ok: false, codex: false, claude: false, error: "" };
 let aiAssistBusy = false;
 let aiAssistResult = null;
@@ -1309,12 +1308,12 @@ function renderInspector() {
   else if (inspTab === "images") renderImages(body, a);
   else if (inspTab === "meta") body.innerHTML = renderMeta(a);
   else if (inspTab === "people") body.innerHTML = renderPeople(a);
-  else body.innerHTML = renderCodex(a);
+  else body.innerHTML = renderAgents(a);
   if (inspTab === "tips") wireChecklist();
   if (inspTab === "meta") wireMeta();
   if (inspTab === "images") wireImages();
   if (inspTab === "people") wirePeople();
-  if (inspTab === "codex") wireCodex();
+  if (inspTab === "agents") wireAgents();
 }
 
 /* ---------------- pre-publish checklist ---------------- */
@@ -1393,9 +1392,9 @@ function wireChecklist() {
   });
   $$("#inspBody [data-chk-fix]").forEach(btn => btn.onclick = e => {
     e.preventDefault();                       // don't toggle the surrounding label's checkbox
-    codexTask = btn.dataset.chkFix;
+    agentTask = btn.dataset.chkFix;
     aiAssistResult = null;
-    inspTab = "codex";
+    inspTab = "agents";
     renderInspector();
   });
 }
@@ -1579,7 +1578,7 @@ function renderPeople(a) {
         <input id="npNote" placeholder="Note — why/when to tag (topics, role)" style="margin-top:6px" />
         <button class="btn primary" id="npAdd" style="margin-top:8px;width:100%">+ Add person</button>
       </div>
-      <div class="codex-note" style="margin-top:12px">Saved to <code>articles/people.json</code> when a folder is connected — so Codex/Claude can suggest who to @mention. Tag people on photos in the <b>Images</b> tab.</div>
+      <div class="agent-note" style="margin-top:12px">Saved to <code>articles/people.json</code> when a folder is connected — so Codex/Claude can suggest who to @mention. Tag people on photos in the <b>Images</b> tab.</div>
     </div>`;
 }
 function wirePeople() {
@@ -1640,8 +1639,8 @@ function insertMention(p) {
   toast(`Inserted ${token}`, "good");
 }
 
-/* ---------------- Codex handoff ---------------- */
-const CODEX_TASKS = {
+/* ---------------- Agent tasks ---------------- */
+const AGENT_TASKS = {
   polish: {
     label: "Polish draft",
     ask: "Polish this article for clarity, flow, and platform fit. Keep the author's voice, preserve Markdown, and do not invent facts."
@@ -1665,11 +1664,11 @@ const CODEX_TASKS = {
 };
 
 const AGENT_TARGETS = {
-  codex: { label: "Codex", taskDir: ".codex-tasks" },
-  claude: { label: "Claude Code", taskDir: ".claude-tasks" }
+  codex: { label: "Codex" },
+  claude: { label: "Claude Code" }
 };
 
-function renderCodex(a) {
+function renderAgents(a) {
   if (!a) return `<div class="empty-hint">Open an article to create an agent task.</div>`;
   const target = AGENT_TARGETS[agentTarget] || AGENT_TARGETS.codex;
   const engineOk = agentTarget === "claude" ? backendStatus.claude : backendStatus.codex;
@@ -1683,46 +1682,43 @@ function renderCodex(a) {
         : "Backend not running";
   const runDisabled = aiAssistBusy || !backendStatus.ok || !engineOk ? "disabled" : "";
   const resultHtml = aiAssistResult ? `
-    <div class="codex-result">
+    <div class="agent-result">
       <b>AI result ready</b>
       <div>${esc(aiAssistResult.notes || "Review the draft before applying.")}</div>
       <pre>${esc((aiAssistResult.body || "").slice(0, 900))}${(aiAssistResult.body || "").length > 900 ? "\n..." : ""}</pre>
-      <div class="codex-actions" style="margin-top:8px">
+      <div class="agent-actions" style="margin-top:8px">
         <button class="btn primary" id="applyAiAssist">Apply result</button>
         <button class="btn ghost" id="discardAiAssist">Discard</button>
       </div>
     </div>` : "";
   return `
-    <div class="codex-panel">
+    <div class="agent-panel">
       <div class="tip-platform"><span class="swatch" style="width:9px;height:9px;border-radius:3px;background:var(--accent)"></span>Agent handoff</div>
       <div class="seg" id="agentTargetSeg">
         ${Object.entries(AGENT_TARGETS).map(([key, item]) => `<button data-agent-target="${key}" class="${agentTarget===key?"active":""}">${item.label}</button>`).join("")}
       </div>
-      <div class="codex-status ${backendClass}">
+      <div class="agent-status ${backendClass}">
         <span class="led"></span>
         <span>${backendText}</span>
         <span style="flex:1"></span>
         <button class="btn ghost sm" id="checkBackend">Check</button>
       </div>
-      <div class="codex-presets">
-        ${Object.entries(CODEX_TASKS).map(([key, task]) => `<button class="codex-preset ${codexTask===key?"active":""}" data-codex-task="${key}">${task.label}</button>`).join("")}
+      <div class="agent-presets">
+        ${Object.entries(AGENT_TASKS).map(([key, task]) => `<button class="agent-preset ${agentTask===key?"active":""}" data-agent-task="${key}">${task.label}</button>`).join("")}
       </div>
-      <textarea class="prompt-box" id="codexPrompt">${esc(buildCodexPrompt(a))}</textarea>
-      <div class="codex-actions">
-        <button class="btn primary" id="copyCodexPrompt">Copy prompt</button>
-        <button class="btn" id="saveCodexTask">Save task note</button>
-      </div>
+      <textarea class="prompt-box" id="agentPrompt">${esc(buildAgentPrompt(a))}</textarea>
+      <button class="btn" id="copyAgentPrompt">Copy prompt</button>
       <button class="btn primary" id="runAiAssist" ${runDisabled}>${aiAssistBusy ? `Running ${target.label}…` : `Run ${target.label}`}</button>
       ${resultHtml}
-      <div class="codex-note">
-        ${backendStatus.ok ? `Run executes the local <b>${target.label}</b> CLI on this file. Task notes (handoff) go to <code>${target.taskDir}/</code>.` : "Start the local backend with <code>serve.command</code>. Browsers cannot start local processes directly, but this page will use the backend when it is running."}
+      <div class="agent-note">
+        ${backendStatus.ok ? `Run executes the local <b>${target.label}</b> CLI on this file — or copy the prompt into any agent session yourself.` : "Start the local backend with <code>serve.command</code>. Browsers cannot start local processes directly, but this page will use the backend when it is running."}
       </div>
     </div>`;
 }
 
-function buildCodexPrompt(a) {
+function buildAgentPrompt(a) {
   const p = PLATFORMS[a.platform] || PLATFORMS.blog;
-  const task = CODEX_TASKS[codexTask] || CODEX_TASKS.polish;
+  const task = AGENT_TASKS[agentTask] || AGENT_TASKS.polish;
   const target = AGENT_TARGETS[agentTarget] || AGENT_TARGETS.codex;
   const file = a._file ? `articles/${a._file}` : `articles/${slugify(a.title)}.md`;
   const tags = (a.tags || []).join(", ") || "none";
@@ -1757,21 +1753,21 @@ function buildCodexPrompt(a) {
   ].join("\n");
 }
 
-function wireCodex() {
+function wireAgents() {
   const a = current(); if (!a) return;
   $$("#agentTargetSeg button").forEach(btn => btn.onclick = () => {
     agentTarget = btn.dataset.agentTarget;
     aiAssistResult = null;
     renderInspector();
   });
-  $$(".codex-preset").forEach(btn => btn.onclick = () => {
-    codexTask = btn.dataset.codexTask;
+  $$(".agent-preset").forEach(btn => btn.onclick = () => {
+    agentTask = btn.dataset.agentTask;
     aiAssistResult = null;
     renderInspector();
   });
   $("#checkBackend").onclick = () => checkBackend(true);
-  $("#copyCodexPrompt").onclick = async () => {
-    const prompt = $("#codexPrompt").value;
+  $("#copyAgentPrompt").onclick = async () => {
+    const prompt = $("#agentPrompt").value;
     try {
       await navigator.clipboard.writeText(prompt);
       toast("Prompt copied.", "good");
@@ -1779,7 +1775,6 @@ function wireCodex() {
       toast("Clipboard failed. Select and copy the prompt manually.", "bad");
     }
   };
-  $("#saveCodexTask").onclick = saveCodexTask;
   $("#runAiAssist").onclick = runAiAssist;
   const applyBtn = $("#applyAiAssist");
   if (applyBtn) applyBtn.onclick = applyAiAssistResult;
@@ -1787,25 +1782,6 @@ function wireCodex() {
   if (discardBtn) discardBtn.onclick = () => { aiAssistResult = null; renderInspector(); };
 }
 
-async function saveCodexTask() {
-  const a = current();
-  if (!a) return;
-  if (!dirHandle) return toast("Connect a folder first.", "bad");
-  await commitSave({ force: false });
-  const target = AGENT_TARGETS[agentTarget] || AGENT_TARGETS.codex;
-  taskNotesDirHandle = await dirHandle.getDirectoryHandle(target.taskDir, { create: true });
-  const prompt = $("#codexPrompt").value;
-  const fname = `${slugify(a.title)}-${codexTask}-task.md`;
-  try {
-    const fh = await taskNotesDirHandle.getFileHandle(fname, { create: true });
-    const w = await fh.createWritable();
-    await w.write(`# ${target.label} task: ${a.title || "Untitled"}\n\n${prompt}\n`);
-    await w.close();
-    toast(`Saved ${target.taskDir}/${fname}`, "good");
-  } catch (e) {
-    toast(`Couldn't save ${target.label} task: ` + e.message, "bad");
-  }
-}
 
 async function checkBackend(showToast = false) {
   try {
@@ -1823,7 +1799,7 @@ async function checkBackend(showToast = false) {
     backendStatus = { checked: true, ok: false, codex: false, claude: false, error: e.message };
     if (showToast) toast("Backend not running. Start with serve.command.", "bad");
   }
-  if (inspTab === "codex") renderInspector();
+  if (inspTab === "agents") renderInspector();
 }
 
 async function runAiAssist() {
@@ -1838,8 +1814,8 @@ async function runAiAssist() {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         engine: agentTarget,
-        task: codexTask,
-        prompt: $("#codexPrompt").value,
+        task: agentTask,
+        prompt: $("#agentPrompt").value,
         platform: (PLATFORMS[a.platform] || PLATFORMS.blog).label,
         article: {
           file: a._file || `${slugify(a.title)}.md`,
@@ -2376,9 +2352,7 @@ function showHelp() {
     <ol style="font-size:13px;color:var(--text-dim);line-height:1.7;padding-left:18px">
       <li>Click <b>🔗 Connect folder</b> and pick <kbd>article_publisher/articles</kbd>.</li>
       <li>Every article is saved as a <kbd>.md</kbd> file with YAML front-matter (title, platform, status, tags, images).</li>
-      <li>Use the <b>Agents</b> tab to choose Codex or Claude Code, then copy a task prompt or save a task note.</li>
-      <li>Task notes are saved under <kbd>.codex-tasks/</kbd> or <kbd>.claude-tasks/</kbd>.</li>
-      <li>Run that task against the shared <kbd>articles/</kbd> folder — the agent edits the same file.</li>
+      <li>Use the <b>Agents</b> tab to choose Codex or Claude Code, pick a task, and hit <b>Run</b> — the agent edits the shared file directly. Or copy the prompt into your own agent session.</li>
       <li>Hit <b>↻ Reload</b> here to pull edits back into the app.</li>
       <li>Images land in <kbd>articles/images/</kbd> and are referenced by relative path, so publishing tools and agents both see them.</li>
     </ol>

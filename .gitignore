@@ -13,9 +13,10 @@ articles/images/*
 # Your article drafts (keep only the welcome sample as documentation):
 articles/*.md
 !articles/welcome-linkedin-post.md
-# Your people directory (real contacts), hashtag sets and agent task notes:
+# Your people directory (real contacts) and hashtag sets:
 articles/people.json
 articles/tagsets.json
+# Task-note dirs from older versions (feature removed, dirs may still exist locally):
 articles/.codex-tasks/
 articles/.claude-tasks/
 
