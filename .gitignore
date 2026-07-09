@@ -17,3 +17,6 @@ articles/*.md
 articles/people.json
 articles/.codex-tasks/
 articles/.claude-tasks/
+
+# graphify knowledge-graph output (generated tooling artifacts, local only)
+graphify-out/
