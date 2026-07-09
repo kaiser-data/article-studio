@@ -13,8 +13,9 @@ articles/images/*
 # Your article drafts (keep only the welcome sample as documentation):
 articles/*.md
 !articles/welcome-linkedin-post.md
-# Your people directory (real contacts) and agent task notes:
+# Your people directory (real contacts), hashtag sets and agent task notes:
 articles/people.json
+articles/tagsets.json
 articles/.codex-tasks/
 articles/.claude-tasks/
 

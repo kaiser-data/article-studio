@@ -232,6 +232,11 @@
   .person-acts { display: flex; gap: 3px; flex: 0 0 auto; }
   .person-form input, .person-form select { width: 100%; background: var(--panel); border: 1px solid var(--line); color: var(--text); border-radius: 7px; padding: 7px 9px; font-size: 13px; }
   .person-form input:focus, .person-form select:focus { outline: none; border-color: var(--accent); }
+  .tagset-list { display: flex; flex-direction: column; gap: 6px; }
+  .tagset-row { display: flex; align-items: flex-start; gap: 8px; background: var(--panel); border: 1px solid var(--line); border-radius: 9px; padding: 8px 10px; }
+  .tagset-main { flex: 1; min-width: 0; }
+  .tagset-name { font-size: 12.5px; font-weight: 600; margin-bottom: 4px; }
+  .tagset-acts { display: flex; gap: 3px; flex: 0 0 auto; }
   .img-people-chips { display: flex; flex-wrap: wrap; gap: 4px; padding: 4px 6px 0; }
   .img-people-chips .tag { font-size: 10px; padding: 2px 6px; }
   .img-tag-box { padding: 4px 6px 6px; }
@@ -742,6 +747,7 @@ function loadLocal() {
   } catch (e) {}
   if (!state.articles) state.articles = [];
   if (!state.people) state.people = [];
+  if (!state.tagsets) state.tagsets = [];
   if (typeof state.voice !== "string") state.voice = "";
 }
 
@@ -870,6 +876,26 @@ async function loadPeopleFile() {
 }
 function savePeople() { saveLocal(); writePeopleFile(); }
 
+/* hashtag sets mirrored to articles/tagsets.json so agents can reuse your tag bundles */
+async function writeTagsetsFile() {
+  if (!dirHandle) return;
+  try {
+    const fh = await dirHandle.getFileHandle("tagsets.json", { create: true });
+    const w = await fh.createWritable();
+    await w.write(JSON.stringify(state.tagsets || [], null, 2));
+    await w.close();
+  } catch (e) { /* non-fatal */ }
+}
+async function loadTagsetsFile() {
+  if (!dirHandle) return;
+  try {
+    const fh = await dirHandle.getFileHandle("tagsets.json");
+    const arr = JSON.parse(await (await fh.getFile()).text());
+    if (Array.isArray(arr)) state.tagsets = arr;
+  } catch (e) { /* no file yet */ }
+}
+function saveTagsets() { saveLocal(); writeTagsetsFile(); }
+
 /* voice guide — mirrored to articles/voice.md so the agents always read your style */
 async function writeVoiceFile() {
   if (!dirHandle) return;
@@ -892,6 +918,7 @@ function saveVoice() { saveLocal(); writeVoiceFile(); }
 async function importFromFolder(opts = {}) {
   if (!dirHandle) return;
   await loadPeopleFile();
+  await loadTagsetsFile();
   await loadVoiceFile();
   // collect handles, then read all files in parallel (fast even with hundreds of files)
   const handles = [];
@@ -1411,6 +1438,7 @@ function renderMeta(a) {
       <input id="metaTags" value="${esc((a.tags||[]).join(", "))}" placeholder="toastmasters, leadership, devops" />
       <div class="tags-row" style="margin-top:8px">${(a.tags||[]).map(t=>`<span class="tag">${esc(t)}</span>`).join("")}</div>
     </div>
+    ${renderTagsets(a)}
     ${renderVariants(a)}
     <div class="meta-field">
       <label>File</label>
@@ -1420,6 +1448,59 @@ function renderMeta(a) {
       <label>Timeline</label>
       <div style="font-size:12px;color:var(--text-dim)">Created ${fmtDate(a.created)}<br/>Updated ${fmtDate(a.updated)}</div>
     </div>`;
+}
+function renderTagsets(a) {
+  const sets = (state.tagsets || []).slice().sort((x, y) => (x.name||"").localeCompare(y.name||""));
+  const rows = sets.map(ts => `<div class="tagset-row" data-tsid="${ts.id}">
+      <div class="tagset-main">
+        <div class="tagset-name">${esc(ts.name) || "Unnamed"}</div>
+        <div class="tags-row">${(ts.tags||[]).map(t=>`<span class="tag">${esc(t)}</span>`).join("")}</div>
+      </div>
+      <div class="tagset-acts">
+        <button class="btn sm" data-act="apply" title="Add these tags to the article">＋</button>
+        <button class="btn ghost sm" data-act="edit" title="Edit set">✎</button>
+        <button class="btn ghost sm danger" data-act="del" title="Delete set">✕</button>
+      </div>
+    </div>`).join("");
+  return `<div class="meta-field">
+    <label>Hashtag sets <span style="text-transform:none;color:var(--text-dim2)">(reusable bundles)</span></label>
+    ${rows ? `<div class="tagset-list">${rows}</div>` : `<div class="empty-hint" style="padding:6px 0">No sets yet. Tag this article, then save the bundle for reuse.</div>`}
+    <button class="btn ghost sm" id="tagsetSave" style="margin-top:6px;width:100%" ${(a.tags||[]).length ? "" : "disabled"}>💾 Save current tags as set</button>
+  </div>`;
+}
+function wireTagsets(a) {
+  const save = $("#tagsetSave");
+  if (save) save.onclick = () => {
+    const name = prompt("Set name (e.g. Toastmasters, DevOps, AI):");
+    if (name === null) return;
+    if (!name.trim()) return toast("Enter a name.", "bad");
+    state.tagsets.push({ id: uid(), name: name.trim(), tags: (a.tags || []).slice() });
+    saveTagsets(); renderInspector();
+    toast("Hashtag set saved.", "good");
+  };
+  $$(".tagset-row").forEach(row => {
+    const ts = (state.tagsets || []).find(x => x.id === row.dataset.tsid);
+    if (!ts) return;
+    row.querySelectorAll("[data-act]").forEach(btn => btn.onclick = () => {
+      const act = btn.dataset.act;
+      if (act === "apply") {
+        const before = (a.tags || []).length;
+        a.tags = [...new Set([...(a.tags || []), ...(ts.tags || [])])];
+        scheduleSave(); renderInspector();
+        toast(a.tags.length > before ? `Added ${a.tags.length - before} tag(s) from “${ts.name}”.` : "All tags already on the article.", "good");
+      } else if (act === "edit") {
+        const name = prompt("Set name:", ts.name); if (name === null) return;
+        const tags = prompt("Tags (comma separated):", (ts.tags || []).join(", "));
+        ts.name = name.trim() || ts.name;
+        if (tags !== null) ts.tags = tags.split(",").map(x => x.trim()).filter(Boolean);
+        saveTagsets(); renderInspector();
+      } else if (act === "del") {
+        if (!confirm(`Delete set “${ts.name}”?`)) return;
+        state.tagsets = state.tagsets.filter(x => x.id !== ts.id);
+        saveTagsets(); renderInspector();
+      }
+    });
+  });
 }
 function renderVariants(a) {
   const set = articleGroup(a);
@@ -1440,6 +1521,7 @@ function renderVariants(a) {
 }
 function wireMeta() {
   const a = current(); if (!a) return;
+  wireTagsets(a);
   const s = $("#metaSummary"), t = $("#metaTags");
   if (s) s.oninput = () => { a.summary = s.value; scheduleSave(); };
   if (t) t.onchange = () => {
@@ -1977,7 +2059,14 @@ function importJson(file) {
   r.onload = () => {
     try {
       const data = JSON.parse(r.result);
-      if (data.articles) { state = data; saveLocal(); renderAll(); closeMenu(); toast("Backup imported.", "good"); }
+      if (data.articles) {
+        state = data;
+        // backups from older versions may miss newer collections
+        if (!state.people) state.people = [];
+        if (!state.tagsets) state.tagsets = [];
+        if (typeof state.voice !== "string") state.voice = "";
+        saveLocal(); renderAll(); closeMenu(); toast("Backup imported.", "good");
+      }
     } catch (e) { toast("Invalid backup file.", "bad"); }
   };
   r.readAsText(file);

@@ -90,6 +90,10 @@ The app and your coding agent edit the **same files**:
   note). Insert mentions into a draft with one click, and **tag people on individual
   photos**. Stored in `articles/people.json` (shared with the agents); photo tags live
   in each article's `imageTags:` front-matter so they survive reloads.
+- **Hashtag sets** — reusable tag bundles per topic (Meta tab). Save the current
+  article's tags as a named set, then apply a set to any article with one click
+  (merged and de-duplicated). Stored in `articles/tagsets.json` (shared with the
+  agents), so your LinkedIn hashtag bundles stay consistent across posts.
 - **Agent handoff** — choose Codex or Claude Code, generate task prompts for
   polishing, hook rewrites, repurposing, alt text, or risk review; copy them or
   save task notes under `articles/.codex-tasks/` or `articles/.claude-tasks/`.
