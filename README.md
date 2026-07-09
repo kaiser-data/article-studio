@@ -91,8 +91,14 @@ The app and your coding agent edit the **same files**:
   photos**. Stored in `articles/people.json` (shared with the agents); photo tags live
   in each article's `imageTags:` front-matter so they survive reloads.
 - **Agent handoff** — choose Codex or Claude Code, generate task prompts for
-  polishing, hook rewrites, repurposing, or risk review; copy them or save task
-  notes under `articles/.codex-tasks/` or `articles/.claude-tasks/`.
+  polishing, hook rewrites, repurposing, alt text, or risk review; copy them or
+  save task notes under `articles/.codex-tasks/` or `articles/.claude-tasks/`.
+- **Alt-text generation** — the **Alt text** agent task lists every image in the
+  article (with its tagged people) and has the agent *open and look at* each file,
+  then write concise, descriptive alt text straight into the `![alt](path)`
+  Markdown — naming tagged people, ≤125 chars, no "image of" filler. The
+  checklist's *"All images have alt text"* item shows a **✨ agent** shortcut that
+  jumps straight to this task when images are missing alt text.
 - **Switchable agent backend** — when started through `serve.command`, the
   Codex / Claude Code selector runs the edit through the chosen local CLI
   (`codex exec` or `claude -p`) and applies the returned draft in the editor.

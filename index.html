@@ -313,6 +313,8 @@
   .chk-auto { font-style: normal; font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: .4px; padding: 1px 5px; border-radius: 8px; margin-left: 3px; white-space: nowrap; }
   .chk-auto.ok { color: var(--ready); border: 1px solid var(--ready); }
   .chk-auto.no { color: var(--draft); border: 1px solid var(--line-2); }
+  .chk-fix { font-size: 10px; font-weight: 700; padding: 1px 6px; margin-left: 3px; border-radius: 8px; border: 1px solid var(--accent); background: transparent; color: var(--accent); cursor: pointer; white-space: nowrap; }
+  .chk-fix:hover { background: var(--accent); color: #fff; }
 
   /* codex tab */
   .codex-panel { display: flex; flex-direction: column; gap: 12px; }
@@ -1324,7 +1326,7 @@ const CHECKLISTS = {
   ]
 };
 const CHECK_UNIVERSAL = [
-  { id: "alt", label: "All images have alt text", auto: a => { const imgs = [...(a.body || "").matchAll(/!\[([^\]]*)\]\([^)]+\)/g)]; return imgs.length === 0 || imgs.every(m => m[1].trim().length > 0); } }
+  { id: "alt", label: "All images have alt text", fix: "alttext", auto: a => { const imgs = [...(a.body || "").matchAll(/!\[([^\]]*)\]\([^)]+\)/g)]; return imgs.length === 0 || imgs.every(m => m[1].trim().length > 0); } }
 ];
 function checklistItems(a) { return (CHECKLISTS[a.platform] || CHECKLISTS.blog).concat(CHECK_UNIVERSAL); }
 function renderChecklist(a) {
@@ -1336,9 +1338,11 @@ function renderChecklist(a) {
     if (it.auto) { checked = !!it.auto(a); locked = true; tag = `<em class="chk-auto ${checked ? "ok" : "no"}">${checked ? "auto ✓" : "needs work"}</em>`; }
     else checked = !!a.checklist[it.id];
     if (checked) done++;
+    // Failing auto-items with a matching agent task get a one-click jump to it.
+    const fix = it.fix && locked && !checked ? `<button class="chk-fix" data-chk-fix="${it.fix}">✨ agent</button>` : "";
     return `<label class="chk ${checked ? "on" : ""}">
       <input type="checkbox" ${checked ? "checked" : ""} ${locked ? "disabled" : ""} data-chk="${it.id}"/>
-      <span>${it.label} ${tag}</span>
+      <span>${it.label} ${tag} ${fix}</span>
     </label>`;
   }).join("");
   const pct = Math.round(done / items.length * 100);
@@ -1358,6 +1362,13 @@ function wireChecklist() {
     a.checklist = a.checklist || {};
     a.checklist[cb.dataset.chk] = cb.checked;
     scheduleSave();
+    renderInspector();
+  });
+  $$("#inspBody [data-chk-fix]").forEach(btn => btn.onclick = e => {
+    e.preventDefault();                       // don't toggle the surrounding label's checkbox
+    codexTask = btn.dataset.chkFix;
+    aiAssistResult = null;
+    inspTab = "codex";
     renderInspector();
   });
 }
@@ -1561,6 +1572,10 @@ const CODEX_TASKS = {
     label: "Repurpose",
     ask: "Create a platform-ready variant of this article. Keep the core idea, adapt structure and tone for the selected platform, and update the metadata if needed."
   },
+  alttext: {
+    label: "Alt text",
+    ask: "Write descriptive alt text for every image in this article. Open each file listed under Images and look at it, then fill the alt text in the Markdown image syntax ![alt](path). Describe what is actually visible, name the tagged people, keep each alt under 125 characters, and skip filler like \"image of\". Replace weak alts (file names, single words); leave good ones alone. Do not change anything else."
+  },
   factcheck: {
     label: "Review risks",
     ask: "Review this article for factual gaps, unsupported claims, unclear wording, and missing caveats. Prefer concrete edits over broad advice."
@@ -1629,6 +1644,13 @@ function buildCodexPrompt(a) {
   const target = AGENT_TARGETS[agentTarget] || AGENT_TARGETS.codex;
   const file = a._file ? `articles/${a._file}` : `articles/${slugify(a.title)}.md`;
   const tags = (a.tags || []).join(", ") || "none";
+  // Images only exist as real files when a folder is connected (im.path);
+  // browser-only blobs (idbKey) can't be opened by the agent, so they're skipped.
+  const imgs = (a.images || []).filter(im => im.path);
+  const imgLines = imgs.length
+    ? ["", "Images (paths relative to the repo root):",
+       ...imgs.map(im => `- articles/${im.path}${(im.people || []).length ? ` — people in photo: ${im.people.join(", ")}` : ""}`)]
+    : [];
   return [
     `You are ${target.label}, editing my Article Studio draft in this repo.`,
     ``,
@@ -1640,6 +1662,7 @@ function buildCodexPrompt(a) {
     `Status: ${a.status}`,
     `Tags: ${tags}`,
     `Summary: ${a.summary || "none"}`,
+    ...imgLines,
     ``,
     `Constraints:`,
     `- Edit the Markdown file directly and preserve the YAML front matter.`,
