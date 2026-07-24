@@ -2,7 +2,7 @@
 
 A single-file writing desk for planning, drafting, and shipping articles across
 **LinkedIn, Medium, Toastmasters newsletters, Luma events, and blogs** — wired
-directly to Codex or Claude Code through plain Markdown files.
+directly to Codex, Claude Code, or Grok Build through plain Markdown files.
 
 ## Run it
 
@@ -19,12 +19,22 @@ node server.js
 # then open http://127.0.0.1:8765/index.html in Chrome / Edge / Brave
 ```
 
-The app still runs as a plain `file://` page, but **Connect folder** only works over
-`http://localhost`. Direct Codex runs also require the local backend.
+The safest mode is the local backend bridge. When the backend is running, the app
+auto-connects to this repo's `articles/` folder through localhost and does not ask
+the browser for broad folder access. This works reliably in Brave because it uses
+normal same-origin HTTP calls instead of the browser folder picker.
+
+The older **Connect folder** picker remains as a fallback for Chromium browsers,
+but it is no longer required when you start the app with `serve.command` or
+`npm start`. Direct Codex runs also require the local backend.
 
 The browser cannot start a backend process by itself, so use `serve.command` to
-start the backend. The app checks `/api/health` and enables **Run Codex** when the
-backend is running and the `codex` CLI is available on `PATH`.
+start the backend. The app checks `/api/health` and enables **Run** for each
+engine whose CLI is available (`codex`, `claude`, or `grok` on `PATH`).
+
+**Grok Build:** install/login with the Grok CLI (`grok login`), then pick
+**Grok Build** in the Agents tab. Override the binary with `GROK_BIN` if needed;
+the server also looks in `~/.grok/bin` and `~/.local/bin`.
 
 ## The agent bridge
 
@@ -48,8 +58,8 @@ The app and your coding agent edit the **same files**:
    body in markdown
    ```
 
-3. Open the **Agents** tab in the inspector and choose **Codex** or
-   **Claude Code** as the target.
+3. Open the **Agents** tab in the inspector and choose **Codex**,
+   **Claude Code**, or **Grok Build** as the target.
 4. Pick a task (polish, hook, repurpose, alt text, risk review), then either hit
    **Run** (executes the local CLI via the backend) or **Copy prompt** and paste it
    into your own agent session, e.g.:
@@ -67,8 +77,15 @@ The app and your coding agent edit the **same files**:
   (LinkedIn hook-story-CTA / IT how-to, Medium long-form, Luma event, Toastmasters
   newsletter) that pre-fill structure, platform, and tags. ⌘N still makes a blank.
 - **Voice guide** (⋯ menu) — your style, rules, and no-gos in one place, saved to
-  `articles/voice.md`. The backend prepends it to every Codex/Claude prompt, so
+  `articles/voice.md`. The backend prepends it to every Codex/Claude/Grok prompt, so
   polishing sharpens your draft without flattening your voice.
+- **Writing skills** — choose an official prompt style in the Agents tab, or create
+  custom skills in the ⋯ menu. Custom skills are saved to
+  `articles/writing-skills.json` and injected into Codex/Claude/Grok prompts.
+- **Safe backend folder bridge** — when the local server is running, the browser
+  reads and writes only this repo's `articles/` folder through localhost API
+  endpoints. No browser folder permission is needed, and paths are sanitized on
+  the server.
 - **Pipeline board** — Idea → Drafting → Ready → Posted, filtered by platform.
 - **Content calendar & scheduling** — give each article a `publishDate` (Meta tab),
   see a full month calendar (📅 button) with posts colored by platform, plus
@@ -93,7 +110,7 @@ The app and your coding agent edit the **same files**:
   article's tags as a named set, then apply a set to any article with one click
   (merged and de-duplicated). Stored in `articles/tagsets.json` (shared with the
   agents), so your LinkedIn hashtag bundles stay consistent across posts.
-- **Agent handoff** — choose Codex or Claude Code, generate task prompts for
+- **Agent handoff** — choose Codex, Claude Code, or Grok Build, generate task prompts for
   polishing, hook rewrites, repurposing, alt text, or risk review; run them
   directly through the backend or copy them into any agent session.
 - **Alt-text generation** — the **Alt text** agent task lists every image in the
@@ -103,8 +120,9 @@ The app and your coding agent edit the **same files**:
   checklist's *"All images have alt text"* item shows a **✨ agent** shortcut that
   jumps straight to this task when images are missing alt text.
 - **Switchable agent backend** — when started through `serve.command`, the
-  Codex / Claude Code selector runs the edit through the chosen local CLI
-  (`codex exec` or `claude -p`) and applies the returned draft in the editor.
+  Codex / Claude Code / Grok Build selector runs the edit through the chosen local CLI
+  (`codex exec`, `claude -p`, or `grok --prompt-file … --yolo`) and applies the
+  returned draft in the editor.
 - **Conflict-safe sync** — if an agent edits a file you have open, the app
   detects it and shows a banner (*Save my version* / *Load file*) instead of
   silently overwriting. **↻ Reload** warns before discarding unsaved in-app edits.
@@ -116,6 +134,10 @@ The app and your coding agent edit the **same files**:
   actually accepts: **LinkedIn** (Markdown bold → Unicode bold that survives, links
   pulled into a ready-to-paste *first comment*), **Medium** (clean Markdown), **Plain
   text**, and **Luma** (event description + a downloadable `.ics` from the publish date).
+- **Ready view + format control** — the editor can show the platform-ready text
+  directly. LinkedIn previews use Unicode emphasis, Medium/blog keep Markdown, and
+  Luma/plain text strip Markdown. Use **ƒ Format** only when you want to replace
+  the source draft with the publish-ready version.
 - **Backup / restore** via JSON, plus "Save all to folder".
 
 ## Folders
@@ -123,7 +145,7 @@ The app and your coding agent edit the **same files**:
 ```
 article_publisher/
 ├── index.html              # the app (UI)
-├── server.js               # local backend: static files + /api/run (codex / claude)
+├── server.js               # local backend: static files + /api/run (codex / claude / grok)
 ├── shared/frontmatter.js   # article <-> Markdown schema, shared by app + backend
 ├── serve.command           # macOS launcher (starts backend, opens Chrome)
 ├── package.json            # npm start / npm test
