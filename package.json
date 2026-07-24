@@ -1,7 +1,7 @@
 {
   "name": "article-studio",
   "version": "1.0.0",
-  "description": "Single-file writing desk for planning, drafting and publishing articles (LinkedIn, Medium, Toastmasters, Luma), wired to Claude Code / Codex via Markdown files.",
+  "description": "Single-file writing desk for planning, drafting and publishing articles (LinkedIn, Medium, Toastmasters, Luma), wired to Claude Code / Codex / Grok Build via Markdown files.",
   "private": true,
   "type": "commonjs",
   "scripts": {
